@@ -2,3 +2,6 @@ project_id = "buexhnmwraxzbtjymzwf"
 
 [functions.siteverify]
 verify_jwt = false
+
+[functions.sdk]
+verify_jwt = false
