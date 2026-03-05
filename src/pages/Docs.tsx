@@ -76,9 +76,8 @@ app.post('/submit', async (req, res) => {
     });
   }
 
-  // 向 NobotCAPTCHA API 驗證 Token
   const response = await fetch(
-    'https://YOUR_PROJECT.supabase.co/functions/v1/siteverify',
+    '${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/siteverify',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
