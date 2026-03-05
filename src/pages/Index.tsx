@@ -158,7 +158,7 @@ const Index = () => {
           </div>
           <div className="flex gap-6 text-xs text-muted-foreground">
             <Link to="/docs" className="hover:text-foreground transition-colors">文件</Link>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
+            <a href="https://github.com/lan2015se-collab/nobotcaptcha.git" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
           </div>
         </div>
       </footer>
