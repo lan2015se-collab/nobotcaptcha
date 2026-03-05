@@ -36,7 +36,7 @@ const sections = [
     title: "1. 安裝",
     description: "在你的 HTML 頁面 <head> 中加入 NobotCAPTCHA 的 SDK script 標籤。這會自動載入驗證引擎並初始化滑鼠路徑監測。",
     code: `<head>
-  <script src="https://cdn.nobot.io/v1/api.js" async defer></script>
+  <script src="${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/sdk" async defer></script>
 </head>`,
     lang: "html",
   },
@@ -76,9 +76,8 @@ app.post('/submit', async (req, res) => {
     });
   }
 
-  // 向 NobotCAPTCHA API 驗證 Token
   const response = await fetch(
-    'https://YOUR_PROJECT.supabase.co/functions/v1/siteverify',
+    '${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/siteverify',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

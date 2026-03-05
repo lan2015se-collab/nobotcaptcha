@@ -90,7 +90,7 @@ export default function DashboardApiKeys() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${domain} - NobotCAPTCHA 表單</title>
-  <script src="https://cdn.nobot.io/v1/api.js" async defer></script>
+  <script src="${supabaseUrl}/functions/v1/sdk" async defer></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
