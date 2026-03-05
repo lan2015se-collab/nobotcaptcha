@@ -208,7 +208,7 @@ const Index = () => {
               </div>
               <pre className="p-5 overflow-x-auto text-sm leading-relaxed">
                 <code className="font-mono text-foreground/90">{`<!-- 1. 加入 SDK -->
-<script src="https://cdn.nobot.io/v1/api.js"
+<script src="${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/sdk"
         async defer></script>
 
 <!-- 2. 放入驗證框 -->
