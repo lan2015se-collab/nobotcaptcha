@@ -201,7 +201,7 @@ const Index = () => {
               <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/30">
                 <div className="flex gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-destructive/60" />
-                  <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                  <span className="w-3 h-3 rounded-full bg-accent/60" style={{ background: 'hsl(45 93% 47% / 0.6)' }} />
                   <span className="w-3 h-3 rounded-full bg-nobot-green/60" />
                 </div>
                 <span className="text-xs text-muted-foreground font-mono ml-2">index.html</span>
