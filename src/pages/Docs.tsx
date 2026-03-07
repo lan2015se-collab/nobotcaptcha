@@ -30,124 +30,82 @@ function CodeBlock({ code, lang = "html" }: { code: string; lang?: string }) {
   );
 }
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co';
+
 const sections = [
   {
     id: "install",
-    title: "1. 安裝",
-    description: "在你的 HTML 頁面 <head> 中加入 NobotCAPTCHA 的 SDK script 標籤。這會自動載入驗證引擎並初始化滑鼠路徑監測。",
-    code: `<head>
-  <script src="${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/sdk" async defer></script>
-</head>`,
+    title: "1. 安裝 SDK",
+    description: "在 HTML 的 <head> 中加入一行 Script 標籤，SDK 會自動載入並初始化行為監測引擎。",
+    code: `<script src="${supabaseUrl}/functions/v1/sdk" async defer></script>`,
     lang: "html",
   },
   {
     id: "deploy",
-    title: "2. 部署驗證框",
-    description: "在你的表單中加入 nobot-captcha 的容器元素。將 data-sitekey 替換為你從控制台取得的 Site Key。",
-    code: `<form action="/submit" method="POST">
-  <!-- 你的表單欄位 -->
-  <input type="text" name="email" placeholder="Email" />
+    title: "2. 放入驗證框",
+    description: "加入一個 div 並設定你的 Site Key。可透過 data-type 選擇驗證類型：checkbox（預設）、image（圖片）、text（文字）。",
+    code: `<!-- 一般勾選驗證（預設）-->
+<div class="nobot-captcha" data-sitekey="YOUR_SITE_KEY"></div>
 
-  <!-- NobotCAPTCHA 驗證框 -->
-  <div class="nobot-captcha" 
-       data-sitekey="YOUR_SITE_KEY">
-  </div>
+<!-- 圖片驗證 -->
+<div class="nobot-captcha" data-sitekey="YOUR_SITE_KEY" data-type="image"></div>
 
-  <button type="submit">提交</button>
-</form>`,
+<!-- 扭曲文字驗證 -->
+<div class="nobot-captcha" data-sitekey="YOUR_SITE_KEY" data-type="text"></div>`,
     lang: "html",
   },
   {
     id: "verify",
     title: "3. 後端驗證",
-    description: "當用戶提交表單時，表單會包含一個 nobot-response 欄位。你的後端伺服器需要將此 Token 發送到 NobotCAPTCHA 的驗證 API 進行確認。",
-    code: `// server.js (Node.js / Express)
-const express = require('express');
-const app = express();
-app.use(express.json());
+    description: "用戶通過驗證後，表單內會自動新增 nobot-response 欄位。將此 Token 連同 Secret Key 發送到驗證 API。",
+    code: `const token = req.body['nobot-response'];
 
-app.post('/submit', async (req, res) => {
-  const token = req.body['nobot-response'];
-  const secret = process.env.NOBOT_SECRET_KEY;
-
-  if (!token) {
-    return res.status(400).json({ 
-      error: '請先完成驗證' 
-    });
-  }
-
-  const response = await fetch(
-    '${import.meta.env.VITE_SUPABASE_URL || 'https://buexhnmwraxzbtjymzwf.supabase.co'}/functions/v1/siteverify',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret, token })
-    }
-  );
-
-  const result = await response.json();
-
-  if (result.success && result.score > 0.5) {
-    res.json({ message: '驗證成功！' });
-  } else {
-    res.status(403).json({ 
-      error: '驗證失敗，疑似機器人' 
-    });
-  }
+const res = await fetch('${supabaseUrl}/functions/v1/siteverify', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    secret: process.env.NOBOT_SECRET_KEY,
+    token: token
+  })
 });
 
-app.listen(3000);`,
-    lang: "javascript",
-  },
-  {
-    id: "mouse",
-    title: "4. 滑鼠路徑監測原理",
-    description: "NobotCAPTCHA 的核心是行為分析引擎。SDK 會自動捕捉用戶的滑鼠移動軌跡，分析以下特徵來區分人類與機器人：",
-    code: `// 行為分析引擎 (簡化版)
-analyzeBehavior(movements) {
-  // 1️⃣ 移動次數檢查
-  // 機器人通常直接點擊，沒有滑鼠移動
-  if (movements.length < 3) return { score: 0.1 };
-
-  // 2️⃣ 反應時間檢查
-  // 腳本執行速度 < 400ms，人類通常 > 1s
-  if (reactionTime < 400) return { score: 0.1 };
-
-  // 3️⃣ 路徑曲線分析
-  // 人類移動帶有微小曲線和不規則性
-  // 機器人通常是絕對直線
-  const deviation = calcPathDeviation(movements);
-  if (deviation < 0.5) return { score: 0.2 };
-
-  // 4️⃣ 速度變化分析
-  // 人類會加速和減速
-  // 機器人通常勻速移動
-  const speedVariance = calcSpeedVariance(movements);
-  if (speedVariance < 0.001) return { score: 0.3 };
-
-  return { score: 0.9, isHuman: true };
-}`,
+const result = await res.json();
+// result.success && result.score > 0.5 → 人類`,
     lang: "javascript",
   },
   {
     id: "response",
-    title: "5. API 回應格式",
-    description: "siteverify API 會回傳 JSON 格式的驗證結果，包含分數和時間戳。",
-    code: `// 成功回應
-{
+    title: "4. API 回應格式",
+    description: "驗證 API 回傳綜合評分與各維度檢查結果，包含行為分析、IP 信譽、瀏覽器指紋和 Cookie 檢測。",
+    code: `{
   "success": true,
-  "score": 0.9,
-  "challenge_ts": "2026-03-04T15:00:00.000Z",
-  "hostname": "example.com"
-}
-
-// 失敗回應
-{
-  "success": false,
-  "score": 0.1,
-  "error-codes": ["timeout-or-duplicate"]
+  "score": 0.92,
+  "challenge_ts": "2026-03-07T10:30:00Z",
+  "hostname": "example.com",
+  "checks": {
+    "behavior": 0.90,
+    "ip_reputation": 1.00,
+    "fingerprint": 0.95,
+    "cookie": true
+  }
 }`,
     lang: "json",
+  },
+  {
+    id: "security",
+    title: "5. 安全機制",
+    description: "NobotCAPTCHA 使用六層防護：行為分析（滑鼠軌跡 + 速度變化）、Cookie 檢測、瀏覽器指紋（Canvas + WebGL）、IP 信譽追蹤、帳號歷史記錄、AI 加權綜合評分。",
+    code: `// 後端評分權重
+最終分數 = 
+  行為分析 × 50%     // 滑鼠軌跡、速度變化
+  + IP 信譽 × 15%    // 失敗歷史追蹤
+  + 瀏覽器指紋 × 20% // Canvas、WebGL、插件
+  + Cookie ± 5~10%   // 瀏覽器 Cookie 能力
+  + 鍵盤活動 × 5%    // 有無鍵盤操作
+
+判定：score > 0.5 → 人類
+     score ≤ 0.5 → 機器人`,
+    lang: "text",
   },
 ];
 
@@ -158,7 +116,6 @@ export default function Docs() {
 
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          {/* Header */}
           <div className="max-w-3xl mx-auto mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium mb-4">
               <Shield className="w-3.5 h-3.5" />
@@ -166,11 +123,10 @@ export default function Docs() {
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">整合指南</h1>
             <p className="text-muted-foreground text-lg">
-              三步驟即可在任何網站部署 NobotCAPTCHA 人機驗證。
+              兩行代碼即可部署，支援三種驗證模式，六層安全防護。
             </p>
           </div>
 
-          {/* Sections — dual column */}
           <div className="max-w-5xl mx-auto space-y-20">
             {sections.map((section) => (
               <div key={section.id} id={section.id} className="grid lg:grid-cols-2 gap-8 items-start">

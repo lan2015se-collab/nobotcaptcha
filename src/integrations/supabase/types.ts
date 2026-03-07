@@ -43,6 +43,7 @@ export type Database = {
       }
       sites: {
         Row: {
+          captcha_type: Database["public"]["Enums"]["captcha_type"]
           created_at: string
           domain: string
           id: string
@@ -51,6 +52,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          captcha_type?: Database["public"]["Enums"]["captcha_type"]
           created_at?: string
           domain: string
           id?: string
@@ -59,6 +61,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          captcha_type?: Database["public"]["Enums"]["captcha_type"]
           created_at?: string
           domain?: string
           id?: string
@@ -136,6 +139,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      captcha_type: "checkbox" | "image" | "text"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -264,6 +268,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      captcha_type: ["checkbox", "image", "text"],
     },
   },
 } as const
