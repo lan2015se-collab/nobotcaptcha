@@ -143,17 +143,17 @@ const sdkScript = `
     return { isHuman: true, score: Math.min(score, 0.99) };
   }
 
-  // ── IMAGE CAPTCHA DATA ──
-  var imageCategories = [
-    { name: '貓', emoji: '🐱', decoys: ['🐶','🐰','🐻','🐼','🦊','🐸','🐵','🐔'] },
-    { name: '花', emoji: '🌸', decoys: ['🌲','🌵','🍀','🍂','🌾','🌿','🎋','🍁'] },
-    { name: '車', emoji: '🚗', decoys: ['🚢','✈️','🚀','🏍️','🚲','🛴','🛶','🚁'] },
-    { name: '星星', emoji: '⭐', decoys: ['🌙','☀️','🌈','⚡','💧','🔥','❄️','🌊'] },
-    { name: '蘋果', emoji: '🍎', decoys: ['🍊','🍋','🍇','🍉','🍓','🥝','🍌','🥭'] },
-    { name: '魚', emoji: '🐟', decoys: ['🐦','🦋','🐝','🐞','🦎','🐢','🦀','🐙'] },
-  ];
+  // ── AI Captcha endpoint ──
+  var captchaEndpoint = (function() {
+    var scripts = document.querySelectorAll('script[src*="functions/v1/sdk"]');
+    if (scripts.length > 0) {
+      var src = scripts[scripts.length - 1].src;
+      return src.replace('/functions/v1/sdk', '/functions/v1/generate-captcha');
+    }
+    return '';
+  })();
 
-  // ── DISTORTED TEXT CAPTCHA ──
+  // ── Distorted Text fallback (canvas) ──
   function generateCaptchaText() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     var len = 5 + Math.floor(Math.random() * 2);
@@ -165,12 +165,8 @@ const sdkScript = `
   function drawDistortedText(canvas, text) {
     var ctx = canvas.getContext('2d');
     canvas.width = 220; canvas.height = 70;
-
-    // Background noise
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, 220, 70);
-
-    // Random lines
     for (var i = 0; i < 6; i++) {
       ctx.strokeStyle = 'hsl(' + Math.random()*360 + ',50%,40%)';
       ctx.lineWidth = 1;
@@ -179,14 +175,10 @@ const sdkScript = `
       ctx.lineTo(Math.random()*220, Math.random()*70);
       ctx.stroke();
     }
-
-    // Random dots
     for (var d = 0; d < 40; d++) {
       ctx.fillStyle = 'hsl(' + Math.random()*360 + ',30%,50%)';
       ctx.fillRect(Math.random()*220, Math.random()*70, 2, 2);
     }
-
-    // Draw each character with distortion
     var x = 15;
     for (var c = 0; c < text.length; c++) {
       ctx.save();
@@ -200,8 +192,6 @@ const sdkScript = `
       ctx.restore();
       x += 28 + Math.floor(Math.random()*10);
     }
-
-    // Wavy distortion overlay lines
     ctx.strokeStyle = 'rgba(99,102,241,0.3)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
