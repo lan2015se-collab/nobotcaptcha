@@ -40,6 +40,7 @@ export function Navbar() {
       {open && (
         <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl px-4 py-4 flex flex-col gap-3">
           <Link to="/docs" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setOpen(false)}>文件</Link>
+          <Link to="/reviews" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setOpen(false)}>評價</Link>
           <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setOpen(false)}>登入</Link>
           <Button asChild size="sm" className="rounded-full w-fit">
             <Link to="/signup" onClick={() => setOpen(false)}>免費開始</Link>

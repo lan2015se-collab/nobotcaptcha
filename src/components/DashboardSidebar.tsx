@@ -16,6 +16,7 @@ import {
 const items = [
   { title: "概覽", url: "/dashboard", icon: LayoutDashboard },
   { title: "API 密鑰", url: "/dashboard/api-keys", icon: Key },
+  { title: "評價", url: "/dashboard/reviews", icon: Star },
   { title: "設置", url: "/dashboard/settings", icon: Settings },
 ];
 
