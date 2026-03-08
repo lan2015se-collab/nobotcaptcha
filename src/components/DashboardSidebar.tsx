@@ -1,4 +1,4 @@
-import { LayoutDashboard, Key, Settings } from "lucide-react";
+import { LayoutDashboard, Key, Settings, Star } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
