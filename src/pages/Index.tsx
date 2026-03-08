@@ -1,5 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { NobotWidget } from "@/components/NobotWidget";
+import { ImageCaptchaDemo } from "@/components/ImageCaptchaDemo";
+import { TextCaptchaDemo } from "@/components/TextCaptchaDemo";
 import { Shield, Zap, Globe, Lock, Check, ArrowRight, Code, MousePointer, Timer, Activity, Github, Fingerprint, Cookie, Brain, Server, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
