@@ -16,6 +16,8 @@ import DashboardOverview from "./pages/DashboardOverview";
 import DashboardApiKeys from "./pages/DashboardApiKeys";
 import DashboardSettings from "./pages/DashboardSettings";
 import Docs from "./pages/Docs";
+import Reviews from "./pages/Reviews";
+import DashboardReviews from "./pages/DashboardReviews";
 
 const queryClient = new QueryClient();
 
