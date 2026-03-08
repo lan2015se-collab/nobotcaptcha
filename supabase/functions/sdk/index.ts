@@ -143,17 +143,17 @@ const sdkScript = `
     return { isHuman: true, score: Math.min(score, 0.99) };
   }
 
-  // ── IMAGE CAPTCHA DATA ──
-  var imageCategories = [
-    { name: '貓', emoji: '🐱', decoys: ['🐶','🐰','🐻','🐼','🦊','🐸','🐵','🐔'] },
-    { name: '花', emoji: '🌸', decoys: ['🌲','🌵','🍀','🍂','🌾','🌿','🎋','🍁'] },
-    { name: '車', emoji: '🚗', decoys: ['🚢','✈️','🚀','🏍️','🚲','🛴','🛶','🚁'] },
-    { name: '星星', emoji: '⭐', decoys: ['🌙','☀️','🌈','⚡','💧','🔥','❄️','🌊'] },
-    { name: '蘋果', emoji: '🍎', decoys: ['🍊','🍋','🍇','🍉','🍓','🥝','🍌','🥭'] },
-    { name: '魚', emoji: '🐟', decoys: ['🐦','🦋','🐝','🐞','🦎','🐢','🦀','🐙'] },
-  ];
+  // ── AI Captcha endpoint ──
+  var captchaEndpoint = (function() {
+    var scripts = document.querySelectorAll('script[src*="functions/v1/sdk"]');
+    if (scripts.length > 0) {
+      var src = scripts[scripts.length - 1].src;
+      return src.replace('/functions/v1/sdk', '/functions/v1/generate-captcha');
+    }
+    return '';
+  })();
 
-  // ── DISTORTED TEXT CAPTCHA ──
+  // ── Distorted Text fallback (canvas) ──
   function generateCaptchaText() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     var len = 5 + Math.floor(Math.random() * 2);
@@ -165,12 +165,8 @@ const sdkScript = `
   function drawDistortedText(canvas, text) {
     var ctx = canvas.getContext('2d');
     canvas.width = 220; canvas.height = 70;
-
-    // Background noise
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, 220, 70);
-
-    // Random lines
     for (var i = 0; i < 6; i++) {
       ctx.strokeStyle = 'hsl(' + Math.random()*360 + ',50%,40%)';
       ctx.lineWidth = 1;
@@ -179,14 +175,10 @@ const sdkScript = `
       ctx.lineTo(Math.random()*220, Math.random()*70);
       ctx.stroke();
     }
-
-    // Random dots
     for (var d = 0; d < 40; d++) {
       ctx.fillStyle = 'hsl(' + Math.random()*360 + ',30%,50%)';
       ctx.fillRect(Math.random()*220, Math.random()*70, 2, 2);
     }
-
-    // Draw each character with distortion
     var x = 15;
     for (var c = 0; c < text.length; c++) {
       ctx.save();
@@ -200,8 +192,6 @@ const sdkScript = `
       ctx.restore();
       x += 28 + Math.floor(Math.random()*10);
     }
-
-    // Wavy distortion overlay lines
     ctx.strokeStyle = 'rgba(99,102,241,0.3)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -268,7 +258,7 @@ const sdkScript = `
     });
   }
 
-  // ── IMAGE Widget ──
+  // ── IMAGE Widget (AI-generated) ──
   function createImageWidget(container, sitekey) {
     container.style.cssText = 'width:320px;border-radius:8px;border:1px solid #334155;background:#1e293b;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);overflow:hidden;' + baseStyles;
 
@@ -278,29 +268,135 @@ const sdkScript = `
     hiddenInput.value = '';
     container.appendChild(hiddenInput);
 
-    renderImageChallenge(container, sitekey, hiddenInput, 0);
+    renderAIImageChallenge(container, sitekey, hiddenInput, 0);
   }
 
-  function renderImageChallenge(container, sitekey, hiddenInput, attempt) {
-    // Clear previous content except hidden input
+  function renderAIImageChallenge(container, sitekey, hiddenInput, attempt) {
     while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
     if (!container.contains(hiddenInput)) container.appendChild(hiddenInput);
 
-    var cat = imageCategories[Math.floor(Math.random() * imageCategories.length)];
-    var targetCount = 2 + Math.floor(Math.random() * 2); // 2-3 targets
+    // Loading state
+    var loadingDiv = document.createElement('div');
+    loadingDiv.style.cssText = 'padding:40px;text-align:center;';
+    loadingDiv.innerHTML = '<div style="width:32px;height:32px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin 0.8s linear infinite;margin:0 auto 8px;"></div><div style="font-size:12px;color:#94a3b8;">AI 生成驗證圖片中...</div>';
+    container.insertBefore(loadingDiv, hiddenInput);
+
+    // Fetch AI-generated captcha
+    fetch(captchaEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'image' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.image) throw new Error('No image');
+      container.removeChild(loadingDiv);
+      buildImageUI(container, sitekey, hiddenInput, data, attempt);
+    })
+    .catch(function() {
+      // Fallback to canvas-based emoji challenge
+      container.removeChild(loadingDiv);
+      renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt);
+    });
+  }
+
+  function buildImageUI(container, sitekey, hiddenInput, data, attempt) {
+    var header = document.createElement('div');
+    header.style.cssText = 'padding:12px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
+    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + data.label + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    container.insertBefore(header, hiddenInput);
+
+    var imgWrap = document.createElement('div');
+    imgWrap.style.cssText = 'position:relative;';
+    var img = document.createElement('img');
+    img.src = data.image;
+    img.style.cssText = 'width:100%;display:block;aspect-ratio:1;object-fit:cover;';
+    imgWrap.appendChild(img);
+
+    // Clickable overlay
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);';
+    var selected = new Set();
+    var targets = new Set(data.targets);
+
+    for (var i = 0; i < 9; i++) {
+      (function(idx) {
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        cell.style.cssText = 'border:2px solid transparent;background:transparent;cursor:pointer;transition:all 0.2s;';
+        cell.addEventListener('click', function() {
+          if (selected.has(idx)) {
+            selected.delete(idx);
+            cell.style.borderColor = 'transparent';
+            cell.style.background = 'transparent';
+          } else {
+            selected.add(idx);
+            cell.style.borderColor = '#6366f1';
+            cell.style.background = 'rgba(99,102,241,0.3)';
+          }
+        });
+        overlay.appendChild(cell);
+      })(i);
+    }
+    imgWrap.appendChild(overlay);
+    container.insertBefore(imgWrap, hiddenInput);
+
+    // Footer
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
+
+    var verifyBtn = document.createElement('button');
+    verifyBtn.type = 'button';
+    verifyBtn.textContent = '驗證';
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
+
+    verifyBtn.addEventListener('click', function() {
+      var correct = true;
+      for (var j = 0; j < 9; j++) {
+        if (targets.has(j) !== selected.has(j)) { correct = false; break; }
+      }
+      if (correct) {
+        var result = analyzeBehavior();
+        result.score = Math.max(result.score, 0.8);
+        result.isHuman = true;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
+        renderAIImageChallenge(container, sitekey, hiddenInput, attempt + 1);
+      } else {
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
+        setTimeout(function() { renderAIImageChallenge(container, sitekey, hiddenInput, 0); }, 2000);
+      }
+    });
+
+    footer.appendChild(brandF);
+    footer.appendChild(verifyBtn);
+    container.insertBefore(footer, hiddenInput);
+  }
+
+  // Fallback emoji-based image challenge
+  function renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt) {
+    var categories = [
+      { name: '貓', emoji: '🐱', decoys: ['🐶','🐰','🐻','🐼','🦊','🐸','🐵','🐔'] },
+      { name: '花', emoji: '🌸', decoys: ['🌲','🌵','🍀','🍂','🌾','🌿','🎋','🍁'] },
+      { name: '車', emoji: '🚗', decoys: ['🚢','✈️','🚀','🏍️','🚲','🛴','🛶','🚁'] },
+    ];
+    var cat = categories[Math.floor(Math.random() * categories.length)];
+    var targetCount = 2 + Math.floor(Math.random() * 2);
     var grid = [];
     for (var t = 0; t < targetCount; t++) grid.push({ emoji: cat.emoji, isTarget: true });
     var decoys = cat.decoys.slice().sort(function() { return Math.random()-0.5; });
     for (var d = 0; d < 9 - targetCount; d++) grid.push({ emoji: decoys[d % decoys.length], isTarget: false });
     grid.sort(function() { return Math.random()-0.5; });
 
-    // Header
     var header = document.createElement('div');
     header.style.cssText = 'padding:12px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
-    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + cat.name + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + cat.name + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div>';
     container.insertBefore(header, hiddenInput);
 
-    // Grid
     var gridEl = document.createElement('div');
     gridEl.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px;';
     var selected = new Set();
@@ -318,65 +414,62 @@ const sdkScript = `
     });
     container.insertBefore(gridEl, hiddenInput);
 
-    // Footer
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
-    var brandF = document.createElement('span');
-    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
-    brandF.textContent = 'Nobot';
-
     var verifyBtn = document.createElement('button');
     verifyBtn.type = 'button';
     verifyBtn.textContent = '驗證';
-    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
-    verifyBtn.onmouseenter = function() { verifyBtn.style.background = '#4f46e5'; };
-    verifyBtn.onmouseleave = function() { verifyBtn.style.background = '#6366f1'; };
-
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
     verifyBtn.addEventListener('click', function() {
       var correct = true;
       grid.forEach(function(item, idx) {
         if (item.isTarget && !selected.has(idx)) correct = false;
         if (!item.isTarget && selected.has(idx)) correct = false;
       });
-
       if (correct) {
         var result = analyzeBehavior();
         result.score = Math.max(result.score, 0.8);
-        result.isHuman = true;
-        // Show success
-        container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
         while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
-        var successIcon = document.createElement('div');
-        successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
-        successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-        var successLabel = document.createElement('span');
-        successLabel.textContent = '驗證成功';
-        successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
-        var successBrand = document.createElement('div');
-        successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-        successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
-        container.insertBefore(successIcon, hiddenInput);
-        container.insertBefore(successLabel, hiddenInput);
-        container.appendChild(successBrand);
-        emitToken(container, hiddenInput, sitekey, result.score);
+        renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt + 1);
       } else {
-        if (attempt < 2) {
-          renderImageChallenge(container, sitekey, hiddenInput, attempt + 1);
-        } else {
-          // Failed too many times
-          header.style.background = '#ef4444';
-          header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
-          setTimeout(function() { renderImageChallenge(container, sitekey, hiddenInput, 0); }, 2000);
-        }
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗</div>';
+        setTimeout(function() {
+          while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+          renderFallbackImageChallenge(container, sitekey, hiddenInput, 0);
+        }, 2000);
       }
     });
-
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
     footer.appendChild(brandF);
     footer.appendChild(verifyBtn);
     container.insertBefore(footer, hiddenInput);
   }
 
-  // ── TEXT Widget ──
+  // ── Shared success UI ──
+  function showSuccess(container, hiddenInput, sitekey, score) {
+    container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+    while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+    var successIcon = document.createElement('div');
+    successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
+    successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    var successLabel = document.createElement('span');
+    successLabel.textContent = '驗證成功';
+    successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
+    var successBrand = document.createElement('div');
+    successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
+    successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
+    container.insertBefore(successIcon, hiddenInput);
+    container.insertBefore(successLabel, hiddenInput);
+    container.appendChild(successBrand);
+    emitToken(container, hiddenInput, sitekey, score);
+  }
+
+  // ── TEXT Widget (AI-generated with canvas fallback) ──
   function createTextWidget(container, sitekey) {
     container.style.cssText = 'width:320px;border-radius:8px;border:1px solid #334155;background:#1e293b;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);overflow:hidden;' + baseStyles;
 
@@ -386,30 +479,50 @@ const sdkScript = `
     hiddenInput.value = '';
     container.appendChild(hiddenInput);
 
-    renderTextChallenge(container, sitekey, hiddenInput, 0);
+    renderAITextChallenge(container, sitekey, hiddenInput, 0);
   }
 
-  function renderTextChallenge(container, sitekey, hiddenInput, attempt) {
+  function renderAITextChallenge(container, sitekey, hiddenInput, attempt) {
     while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
     if (!container.contains(hiddenInput)) container.appendChild(hiddenInput);
 
-    var answer = generateCaptchaText();
+    // Loading
+    var loadingDiv = document.createElement('div');
+    loadingDiv.style.cssText = 'padding:30px;text-align:center;';
+    loadingDiv.innerHTML = '<div style="width:24px;height:24px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin 0.8s linear infinite;margin:0 auto 8px;"></div><div style="font-size:12px;color:#94a3b8;">AI 生成驗證文字中...</div>';
+    container.insertBefore(loadingDiv, hiddenInput);
 
-    // Header
+    fetch(captchaEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'text' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.image) throw new Error('No image');
+      container.removeChild(loadingDiv);
+      buildTextUI(container, sitekey, hiddenInput, data.image, data.answer, attempt);
+    })
+    .catch(function() {
+      container.removeChild(loadingDiv);
+      // Fallback to canvas
+      renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt);
+    });
+  }
+
+  function buildTextUI(container, sitekey, hiddenInput, imageSrc, answer, attempt) {
     var header = document.createElement('div');
     header.style.cssText = 'padding:10px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
-    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字（不分大小寫）</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
     container.insertBefore(header, hiddenInput);
 
-    // Canvas
     var canvasWrap = document.createElement('div');
     canvasWrap.style.cssText = 'padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;';
 
-    var canvas = document.createElement('canvas');
-    canvas.style.cssText = 'border-radius:6px;border:1px solid #334155;';
-    drawDistortedText(canvas, answer);
+    var img = document.createElement('img');
+    img.src = imageSrc;
+    img.style.cssText = 'width:220px;height:70px;border-radius:6px;border:1px solid #334155;object-fit:cover;';
 
-    // Refresh button
     var refreshRow = document.createElement('div');
     refreshRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;';
 
@@ -417,9 +530,76 @@ const sdkScript = `
     refreshBtn.type = 'button';
     refreshBtn.innerHTML = '↻';
     refreshBtn.title = '換一張';
-    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;';
-    refreshBtn.onmouseenter = function() { refreshBtn.style.borderColor = '#6366f1'; };
-    refreshBtn.onmouseleave = function() { refreshBtn.style.borderColor = '#334155'; };
+    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    refreshBtn.addEventListener('click', function() {
+      renderAITextChallenge(container, sitekey, hiddenInput, attempt);
+    });
+
+    var textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.placeholder = '請輸入上方文字';
+    textInput.autocomplete = 'off';
+    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;';
+
+    refreshRow.appendChild(refreshBtn);
+    refreshRow.appendChild(textInput);
+    canvasWrap.appendChild(img);
+    canvasWrap.appendChild(refreshRow);
+    container.insertBefore(canvasWrap, hiddenInput);
+
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
+
+    var verifyBtn = document.createElement('button');
+    verifyBtn.type = 'button';
+    verifyBtn.textContent = '驗證';
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
+
+    verifyBtn.addEventListener('click', function() {
+      if (textInput.value.toUpperCase() === answer.toUpperCase()) {
+        var result = analyzeBehavior();
+        result.score = Math.max(result.score, 0.8);
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
+        renderAITextChallenge(container, sitekey, hiddenInput, attempt + 1);
+      } else {
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
+        setTimeout(function() { renderAITextChallenge(container, sitekey, hiddenInput, 0); }, 2000);
+      }
+    });
+
+    textInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') verifyBtn.click(); });
+
+    footer.appendChild(brandF);
+    footer.appendChild(verifyBtn);
+    container.insertBefore(footer, hiddenInput);
+  }
+
+  // Canvas fallback for text captcha
+  function renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt) {
+    var answer = generateCaptchaText();
+
+    var header = document.createElement('div');
+    header.style.cssText = 'padding:10px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
+    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字（不分大小寫）</div>';
+    container.insertBefore(header, hiddenInput);
+
+    var canvasWrap = document.createElement('div');
+    canvasWrap.style.cssText = 'padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;';
+    var canvas = document.createElement('canvas');
+    canvas.style.cssText = 'border-radius:6px;border:1px solid #334155;';
+    drawDistortedText(canvas, answer);
+
+    var refreshRow = document.createElement('div');
+    refreshRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;';
+    var refreshBtn = document.createElement('button');
+    refreshBtn.type = 'button';
+    refreshBtn.innerHTML = '↻';
+    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     refreshBtn.addEventListener('click', function() {
       answer = generateCaptchaText();
       drawDistortedText(canvas, answer);
@@ -430,9 +610,7 @@ const sdkScript = `
     textInput.type = 'text';
     textInput.placeholder = '請輸入上方文字';
     textInput.autocomplete = 'off';
-    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;transition:border-color 0.2s;';
-    textInput.onfocus = function() { textInput.style.borderColor = '#6366f1'; };
-    textInput.onblur = function() { textInput.style.borderColor = '#334155'; };
+    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;';
 
     refreshRow.appendChild(refreshBtn);
     refreshRow.appendChild(textInput);
@@ -440,58 +618,33 @@ const sdkScript = `
     canvasWrap.appendChild(refreshRow);
     container.insertBefore(canvasWrap, hiddenInput);
 
-    // Footer
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
-
     var brandF = document.createElement('span');
     brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
     brandF.textContent = 'Nobot';
-
     var verifyBtn = document.createElement('button');
     verifyBtn.type = 'button';
     verifyBtn.textContent = '驗證';
-    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
-    verifyBtn.onmouseenter = function() { verifyBtn.style.background = '#4f46e5'; };
-    verifyBtn.onmouseleave = function() { verifyBtn.style.background = '#6366f1'; };
-
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
     verifyBtn.addEventListener('click', function() {
       if (textInput.value.toUpperCase() === answer.toUpperCase()) {
         var result = analyzeBehavior();
         result.score = Math.max(result.score, 0.8);
-        result.isHuman = true;
-        // Show success
-        container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
         while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
-        var successIcon = document.createElement('div');
-        successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
-        successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-        var successLabel = document.createElement('span');
-        successLabel.textContent = '驗證成功';
-        successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
-        var successBrand = document.createElement('div');
-        successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-        successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
-        container.insertBefore(successIcon, hiddenInput);
-        container.insertBefore(successLabel, hiddenInput);
-        container.appendChild(successBrand);
-        emitToken(container, hiddenInput, sitekey, result.score);
+        renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt + 1);
       } else {
-        if (attempt < 2) {
-          renderTextChallenge(container, sitekey, hiddenInput, attempt + 1);
-        } else {
-          header.style.background = '#ef4444';
-          header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
-          setTimeout(function() { renderTextChallenge(container, sitekey, hiddenInput, 0); }, 2000);
-        }
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗</div>';
+        setTimeout(function() {
+          while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+          renderCanvasTextChallenge(container, sitekey, hiddenInput, 0);
+        }, 2000);
       }
     });
-
-    // Enter key support
-    textInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') verifyBtn.click();
-    });
-
+    textInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') verifyBtn.click(); });
     footer.appendChild(brandF);
     footer.appendChild(verifyBtn);
     container.insertBefore(footer, hiddenInput);

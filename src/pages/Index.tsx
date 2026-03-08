@@ -1,5 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { NobotWidget } from "@/components/NobotWidget";
+import { ImageCaptchaDemo } from "@/components/ImageCaptchaDemo";
+import { TextCaptchaDemo } from "@/components/TextCaptchaDemo";
 import { Shield, Zap, Globe, Lock, Check, ArrowRight, Code, MousePointer, Timer, Activity, Github, Fingerprint, Cookie, Brain, Server, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -68,20 +70,8 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Widget Demo */}
-          <div className="flex justify-center mb-4 animate-fade-in" style={{ animationDelay: '0.4s', animationFillMode: 'both' }}>
-            <div className="animate-float">
-              <div className="p-1 rounded-lg glow-indigo animate-pulse-glow">
-                <NobotWidget demo />
-              </div>
-            </div>
-          </div>
-          <p className="text-center text-xs text-muted-foreground mb-2 animate-fade-in" style={{ animationDelay: '0.5s', animationFillMode: 'both' }}>
-            ↑ 點擊試試看 — 這是一個即時互動的 Demo
-          </p>
-
           {/* Captcha type demo tabs */}
-          <div className="flex justify-center gap-2 mt-6 animate-fade-in" style={{ animationDelay: '0.55s', animationFillMode: 'both' }}>
+          <div className="flex justify-center gap-2 mb-4 animate-fade-in" style={{ animationDelay: '0.4s', animationFillMode: 'both' }}>
             {[
               { type: "checkbox" as const, label: "✅ 勾選驗證" },
               { type: "image" as const, label: "🖼️ 圖片驗證" },
@@ -100,6 +90,20 @@ const Index = () => {
               </button>
             ))}
           </div>
+
+          {/* Widget Demo */}
+          <div className="flex justify-center mb-4 animate-fade-in" style={{ animationDelay: '0.45s', animationFillMode: 'both' }}>
+            <div className="animate-float">
+              <div className="p-1 rounded-lg glow-indigo animate-pulse-glow">
+                {demoType === "checkbox" && <NobotWidget demo />}
+                {demoType === "image" && <ImageCaptchaDemo demo />}
+                {demoType === "text" && <TextCaptchaDemo demo />}
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-xs text-muted-foreground mb-2 animate-fade-in" style={{ animationDelay: '0.5s', animationFillMode: 'both' }}>
+            ↑ 點擊試試看 — 這是 AI 即時生成的互動 Demo
+          </p>
           <p className="text-center text-[10px] text-muted-foreground/60 mt-2">
             在控制台中可自由切換每個網站的驗證類型
           </p>

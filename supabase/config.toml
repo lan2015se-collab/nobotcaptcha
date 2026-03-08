@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.sdk]
 verify_jwt = false
+
+[functions.moderate-review]
+verify_jwt = false
+
+[functions.generate-captcha]
+verify_jwt = false
