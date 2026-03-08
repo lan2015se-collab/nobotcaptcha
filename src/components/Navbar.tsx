@@ -19,6 +19,9 @@ export function Navbar() {
           <Link to="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             文件
           </Link>
+          <Link to="/reviews" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            評價
+          </Link>
           <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             登入
           </Link>
