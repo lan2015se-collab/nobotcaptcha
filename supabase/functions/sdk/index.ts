@@ -258,7 +258,7 @@ const sdkScript = `
     });
   }
 
-  // ── IMAGE Widget ──
+  // ── IMAGE Widget (AI-generated) ──
   function createImageWidget(container, sitekey) {
     container.style.cssText = 'width:320px;border-radius:8px;border:1px solid #334155;background:#1e293b;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);overflow:hidden;' + baseStyles;
 
@@ -268,29 +268,135 @@ const sdkScript = `
     hiddenInput.value = '';
     container.appendChild(hiddenInput);
 
-    renderImageChallenge(container, sitekey, hiddenInput, 0);
+    renderAIImageChallenge(container, sitekey, hiddenInput, 0);
   }
 
-  function renderImageChallenge(container, sitekey, hiddenInput, attempt) {
-    // Clear previous content except hidden input
+  function renderAIImageChallenge(container, sitekey, hiddenInput, attempt) {
     while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
     if (!container.contains(hiddenInput)) container.appendChild(hiddenInput);
 
-    var cat = imageCategories[Math.floor(Math.random() * imageCategories.length)];
-    var targetCount = 2 + Math.floor(Math.random() * 2); // 2-3 targets
+    // Loading state
+    var loadingDiv = document.createElement('div');
+    loadingDiv.style.cssText = 'padding:40px;text-align:center;';
+    loadingDiv.innerHTML = '<div style="width:32px;height:32px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin 0.8s linear infinite;margin:0 auto 8px;"></div><div style="font-size:12px;color:#94a3b8;">AI 生成驗證圖片中...</div>';
+    container.insertBefore(loadingDiv, hiddenInput);
+
+    // Fetch AI-generated captcha
+    fetch(captchaEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'image' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.image) throw new Error('No image');
+      container.removeChild(loadingDiv);
+      buildImageUI(container, sitekey, hiddenInput, data, attempt);
+    })
+    .catch(function() {
+      // Fallback to canvas-based emoji challenge
+      container.removeChild(loadingDiv);
+      renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt);
+    });
+  }
+
+  function buildImageUI(container, sitekey, hiddenInput, data, attempt) {
+    var header = document.createElement('div');
+    header.style.cssText = 'padding:12px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
+    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + data.label + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    container.insertBefore(header, hiddenInput);
+
+    var imgWrap = document.createElement('div');
+    imgWrap.style.cssText = 'position:relative;';
+    var img = document.createElement('img');
+    img.src = data.image;
+    img.style.cssText = 'width:100%;display:block;aspect-ratio:1;object-fit:cover;';
+    imgWrap.appendChild(img);
+
+    // Clickable overlay
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);';
+    var selected = new Set();
+    var targets = new Set(data.targets);
+
+    for (var i = 0; i < 9; i++) {
+      (function(idx) {
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        cell.style.cssText = 'border:2px solid transparent;background:transparent;cursor:pointer;transition:all 0.2s;';
+        cell.addEventListener('click', function() {
+          if (selected.has(idx)) {
+            selected.delete(idx);
+            cell.style.borderColor = 'transparent';
+            cell.style.background = 'transparent';
+          } else {
+            selected.add(idx);
+            cell.style.borderColor = '#6366f1';
+            cell.style.background = 'rgba(99,102,241,0.3)';
+          }
+        });
+        overlay.appendChild(cell);
+      })(i);
+    }
+    imgWrap.appendChild(overlay);
+    container.insertBefore(imgWrap, hiddenInput);
+
+    // Footer
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
+
+    var verifyBtn = document.createElement('button');
+    verifyBtn.type = 'button';
+    verifyBtn.textContent = '驗證';
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
+
+    verifyBtn.addEventListener('click', function() {
+      var correct = true;
+      for (var j = 0; j < 9; j++) {
+        if (targets.has(j) !== selected.has(j)) { correct = false; break; }
+      }
+      if (correct) {
+        var result = analyzeBehavior();
+        result.score = Math.max(result.score, 0.8);
+        result.isHuman = true;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
+        renderAIImageChallenge(container, sitekey, hiddenInput, attempt + 1);
+      } else {
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
+        setTimeout(function() { renderAIImageChallenge(container, sitekey, hiddenInput, 0); }, 2000);
+      }
+    });
+
+    footer.appendChild(brandF);
+    footer.appendChild(verifyBtn);
+    container.insertBefore(footer, hiddenInput);
+  }
+
+  // Fallback emoji-based image challenge
+  function renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt) {
+    var categories = [
+      { name: '貓', emoji: '🐱', decoys: ['🐶','🐰','🐻','🐼','🦊','🐸','🐵','🐔'] },
+      { name: '花', emoji: '🌸', decoys: ['🌲','🌵','🍀','🍂','🌾','🌿','🎋','🍁'] },
+      { name: '車', emoji: '🚗', decoys: ['🚢','✈️','🚀','🏍️','🚲','🛴','🛶','🚁'] },
+    ];
+    var cat = categories[Math.floor(Math.random() * categories.length)];
+    var targetCount = 2 + Math.floor(Math.random() * 2);
     var grid = [];
     for (var t = 0; t < targetCount; t++) grid.push({ emoji: cat.emoji, isTarget: true });
     var decoys = cat.decoys.slice().sort(function() { return Math.random()-0.5; });
     for (var d = 0; d < 9 - targetCount; d++) grid.push({ emoji: decoys[d % decoys.length], isTarget: false });
     grid.sort(function() { return Math.random()-0.5; });
 
-    // Header
     var header = document.createElement('div');
     header.style.cssText = 'padding:12px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
-    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + cat.name + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    header.innerHTML = '<div><div style="font-size:13px;font-weight:600;">選出所有的「' + cat.name + '」</div><div style="font-size:11px;opacity:0.8;">請點選正確的圖案</div></div>';
     container.insertBefore(header, hiddenInput);
 
-    // Grid
     var gridEl = document.createElement('div');
     gridEl.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px;';
     var selected = new Set();
@@ -308,59 +414,37 @@ const sdkScript = `
     });
     container.insertBefore(gridEl, hiddenInput);
 
-    // Footer
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
-    var brandF = document.createElement('span');
-    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
-    brandF.textContent = 'Nobot';
-
     var verifyBtn = document.createElement('button');
     verifyBtn.type = 'button';
     verifyBtn.textContent = '驗證';
-    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
-    verifyBtn.onmouseenter = function() { verifyBtn.style.background = '#4f46e5'; };
-    verifyBtn.onmouseleave = function() { verifyBtn.style.background = '#6366f1'; };
-
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
     verifyBtn.addEventListener('click', function() {
       var correct = true;
       grid.forEach(function(item, idx) {
         if (item.isTarget && !selected.has(idx)) correct = false;
         if (!item.isTarget && selected.has(idx)) correct = false;
       });
-
       if (correct) {
         var result = analyzeBehavior();
         result.score = Math.max(result.score, 0.8);
-        result.isHuman = true;
-        // Show success
-        container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
         while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
-        var successIcon = document.createElement('div');
-        successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
-        successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-        var successLabel = document.createElement('span');
-        successLabel.textContent = '驗證成功';
-        successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
-        var successBrand = document.createElement('div');
-        successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-        successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
-        container.insertBefore(successIcon, hiddenInput);
-        container.insertBefore(successLabel, hiddenInput);
-        container.appendChild(successBrand);
-        emitToken(container, hiddenInput, sitekey, result.score);
+        renderFallbackImageChallenge(container, sitekey, hiddenInput, attempt + 1);
       } else {
-        if (attempt < 2) {
-          renderImageChallenge(container, sitekey, hiddenInput, attempt + 1);
-        } else {
-          // Failed too many times
-          header.style.background = '#ef4444';
-          header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
-          setTimeout(function() { renderImageChallenge(container, sitekey, hiddenInput, 0); }, 2000);
-        }
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗</div>';
+        setTimeout(function() {
+          while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+          renderFallbackImageChallenge(container, sitekey, hiddenInput, 0);
+        }, 2000);
       }
     });
-
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
     footer.appendChild(brandF);
     footer.appendChild(verifyBtn);
     container.insertBefore(footer, hiddenInput);
