@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Plus, Trash2, Eye, EyeOff, Check, Code, Server, Shield } from "lucide-react";
+import { Copy, Plus, Trash2, Eye, EyeOff, Check, Code, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 type Site = {
@@ -16,6 +16,7 @@ type Site = {
   user_id: string;
   created_at: string;
   captcha_type: "checkbox" | "image" | "text";
+  difficulty: "easy" | "medium" | "hard" | "extreme";
 };
 
 function CopyBlock({ code, label }: { code: string; label?: string }) {
@@ -28,10 +29,7 @@ function CopyBlock({ code, label }: { code: string; label?: string }) {
   };
   return (
     <div className="relative rounded-lg border border-border bg-secondary/30 overflow-hidden">
-      <button
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors z-10"
-      >
+      <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors z-10">
         {copied ? <Check className="w-3.5 h-3.5 text-nobot-green" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
       <pre className="p-4 overflow-x-auto text-xs leading-relaxed">
@@ -47,11 +45,19 @@ const CAPTCHA_TYPES = [
   { value: "text" as const, label: "🔤 文字驗證", desc: "輸入扭曲文字" },
 ];
 
+const DIFFICULTY_LEVELS = [
+  { value: "easy" as const, label: "簡易", desc: "低干擾，快速通過", color: "text-nobot-green" },
+  { value: "medium" as const, label: "中等", desc: "標準難度，推薦", color: "text-primary" },
+  { value: "hard" as const, label: "困難", desc: "高干擾，更安全", color: "text-orange-500" },
+  { value: "extreme" as const, label: "極其困難", desc: "最高安全等級", color: "text-destructive" },
+];
+
 export default function DashboardApiKeys() {
   const { user } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
   const [newDomain, setNewDomain] = useState("");
   const [newType, setNewType] = useState<"checkbox" | "image" | "text">("checkbox");
+  const [newDifficulty, setNewDifficulty] = useState<"easy" | "medium" | "hard" | "extreme">("medium");
   const [loading, setLoading] = useState(false);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
 
@@ -71,6 +77,7 @@ export default function DashboardApiKeys() {
       user_id: user.id,
       domain: newDomain.trim(),
       captcha_type: newType,
+      difficulty: newDifficulty,
     } as any);
     setLoading(false);
     if (error) { toast.error(error.message); return; }
@@ -90,6 +97,13 @@ export default function DashboardApiKeys() {
     const { error } = await supabase.from("sites").update({ captcha_type: type } as any).eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("驗證類型已更新");
+    fetchSites();
+  };
+
+  const updateDifficulty = async (id: string, difficulty: "easy" | "medium" | "hard" | "extreme") => {
+    const { error } = await supabase.from("sites").update({ difficulty } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("難度已更新");
     fetchSites();
   };
 
@@ -116,30 +130,13 @@ export default function DashboardApiKeys() {
   };
 
   const getServerCode = (secretKey: string) =>
-`// npm install express
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-app.post('/api/submit', async (req, res) => {
-  const token = req.body['nobot-response'];
-  if (!token) return res.status(400).json({ error: '請完成驗證' });
-
-  const r = await fetch('${supabaseUrl}/functions/v1/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secret: '${secretKey}', token })
-  });
-  const result = await r.json();
-
-  if (result.success && result.score > 0.5) {
-    res.json({ message: '驗證通過', score: result.score });
-  } else {
-    res.status(403).json({ error: '驗證失敗' });
-  }
+`const r = await fetch('${supabaseUrl}/functions/v1/siteverify', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ secret: '${secretKey}', token })
 });
-
-app.listen(3000);`;
+const result = await r.json();
+// result.success && result.score > 0.5 → 人類`;
 
   return (
     <div className="space-y-6">
@@ -152,34 +149,39 @@ app.listen(3000);`;
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={addSite} className="flex gap-3">
-            <Input
-              value={newDomain}
-              onChange={e => setNewDomain(e.target.value)}
-              placeholder="example.com"
-              className="flex-1"
-            />
+            <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="example.com" className="flex-1" />
             <Button type="submit" disabled={loading} size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              新增
+              <Plus className="w-4 h-4 mr-1" /> 新增
             </Button>
           </form>
-          {/* Captcha type selector */}
+
+          {/* Captcha type */}
           <div>
             <Label className="text-xs text-muted-foreground mb-2 block">驗證類型</Label>
             <div className="flex gap-2">
               {CAPTCHA_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setNewType(t.value)}
+                <button key={t.value} type="button" onClick={() => setNewType(t.value)}
                   className={`flex-1 p-3 rounded-lg border text-left transition-all text-sm ${
-                    newType === t.value
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-secondary/30 text-muted-foreground hover:border-primary/30"
-                  }`}
-                >
+                    newType === t.value ? "border-primary bg-primary/10 text-foreground" : "border-border bg-secondary/30 text-muted-foreground hover:border-primary/30"
+                  }`}>
                   <div className="font-medium">{t.label}</div>
                   <div className="text-xs mt-0.5 opacity-70">{t.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Difficulty */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-2 block">驗證難度</Label>
+            <div className="flex gap-2">
+              {DIFFICULTY_LEVELS.map(d => (
+                <button key={d.value} type="button" onClick={() => setNewDifficulty(d.value)}
+                  className={`flex-1 p-2.5 rounded-lg border text-center transition-all text-sm ${
+                    newDifficulty === d.value ? "border-primary bg-primary/10 text-foreground" : "border-border bg-secondary/30 text-muted-foreground hover:border-primary/30"
+                  }`}>
+                  <div className={`font-medium text-xs ${d.color}`}>{d.label}</div>
+                  <div className="text-[10px] mt-0.5 opacity-70">{d.desc}</div>
                 </button>
               ))}
             </div>
@@ -201,10 +203,15 @@ app.listen(3000);`;
               <CardContent className="pt-6 space-y-5">
                 {/* Domain header */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold">{site.domain}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                       {CAPTCHA_TYPES.find(t => t.value === site.captcha_type)?.label || "✅ 一般勾選"}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full bg-secondary/50 ${
+                      DIFFICULTY_LEVELS.find(d => d.value === site.difficulty)?.color || "text-primary"
+                    }`}>
+                      {DIFFICULTY_LEVELS.find(d => d.value === site.difficulty)?.label || "中等"}
                     </span>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => deleteSite(site.id)} className="text-muted-foreground hover:text-destructive">
@@ -217,17 +224,26 @@ app.listen(3000);`;
                   <Label className="text-xs text-muted-foreground mb-2 block">切換驗證類型</Label>
                   <div className="flex gap-2">
                     {CAPTCHA_TYPES.map(t => (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => updateCaptchaType(site.id, t.value)}
+                      <button key={t.value} type="button" onClick={() => updateCaptchaType(site.id, t.value)}
                         className={`px-3 py-1.5 rounded-md border text-xs transition-all ${
-                          site.captcha_type === t.value
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border text-muted-foreground hover:border-primary/30"
-                        }`}
-                      >
+                          site.captcha_type === t.value ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/30"
+                        }`}>
                         {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Change difficulty */}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">調整難度</Label>
+                  <div className="flex gap-2">
+                    {DIFFICULTY_LEVELS.map(d => (
+                      <button key={d.value} type="button" onClick={() => updateDifficulty(site.id, d.value)}
+                        className={`px-3 py-1.5 rounded-md border text-xs transition-all ${
+                          site.difficulty === d.value ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/30"
+                        }`}>
+                        <span className={d.color}>{d.label}</span>
                       </button>
                     ))}
                   </div>
@@ -239,9 +255,7 @@ app.listen(3000);`;
                     <Label className="text-xs text-muted-foreground">Site Key（前端公開金鑰）</Label>
                     <div className="flex items-center gap-2 mt-1">
                       <code className="flex-1 bg-secondary/50 px-3 py-2 rounded text-xs font-mono truncate">{site.site_key}</code>
-                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(site.site_key, "Site Key")}>
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(site.site_key, "Site Key")}><Copy className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                   <div>
@@ -253,9 +267,7 @@ app.listen(3000);`;
                       <Button variant="outline" size="icon" onClick={() => toggleSecret(site.id)}>
                         {visibleSecrets.has(site.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </Button>
-                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(site.secret_key, "Secret Key")}>
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(site.secret_key, "Secret Key")}><Copy className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                 </div>
@@ -263,24 +275,19 @@ app.listen(3000);`;
                 {/* Integration code */}
                 <div className="border-t border-border pt-5 space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                    <Code className="w-4 h-4" />
-                    嵌入代碼
+                    <Code className="w-4 h-4" /> 嵌入代碼
                   </div>
-
                   <div>
                     <Label className="text-xs font-semibold mb-2 block">📄 前端（加入 HTML）</Label>
                     <CopyBlock code={getEmbedCode(site.site_key, site.captcha_type)} label="前端嵌入碼" />
                   </div>
-
                   <div>
-                    <Label className="text-xs font-semibold mb-2 block">⚙️ 後端驗證 (Node.js)</Label>
+                    <Label className="text-xs font-semibold mb-2 block">⚙️ 後端驗證</Label>
                     <CopyBlock code={getServerCode(site.secret_key)} label="後端驗證碼" />
                   </div>
-
                   <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                     <h4 className="text-xs font-semibold text-primary mb-1.5">📋 快速參考</h4>
                     <ul className="text-xs text-muted-foreground space-y-1">
-                      <li>• <strong className="text-foreground">驗證 API</strong>：<code className="bg-secondary/50 px-1 rounded text-[10px] break-all">{supabaseUrl}/functions/v1/siteverify</code></li>
                       <li>• <strong className="text-foreground">分數判定</strong>：score &gt; 0.5 為人類</li>
                       <li>• 回傳含 behavior、ip_reputation、fingerprint、cookie 等多維度評分</li>
                     </ul>

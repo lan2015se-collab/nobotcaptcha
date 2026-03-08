@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Shield, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type CaptchaState = "loading" | "ready" | "verifying" | "verified" | "failed";
+type CaptchaState = "loading" | "ready" | "verifying" | "verified" | "failed" | "locked";
 
 interface ImageCaptchaDemoProps {
   demo?: boolean;
@@ -15,6 +15,27 @@ export function ImageCaptchaDemo({ demo = true }: ImageCaptchaDemoProps) {
   const [targets, setTargets] = useState<number[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
+  const [failCount, setFailCount] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number>(0);
+  const [lockRemaining, setLockRemaining] = useState(0);
+
+  // Lockout timer
+  useEffect(() => {
+    if (lockUntil <= Date.now()) return;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockRemaining(0);
+        setState("loading");
+        setFailCount(0);
+        loadChallenge();
+        clearInterval(interval);
+      } else {
+        setLockRemaining(remaining);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [lockUntil]);
 
   const loadChallenge = useCallback(async () => {
     setState("loading");
@@ -67,14 +88,49 @@ export function ImageCaptchaDemo({ demo = true }: ImageCaptchaDemoProps) {
         }
       }
 
-      if (correct || demo) {
+      if (correct) {
         setState("verified");
+        setFailCount(0);
       } else {
-        setState("failed");
-        setTimeout(() => loadChallenge(), 1500);
+        const newFails = failCount + 1;
+        setFailCount(newFails);
+        if (newFails >= 5) {
+          const until = Date.now() + 60000;
+          setLockUntil(until);
+          setLockRemaining(60);
+          setState("locked");
+        } else {
+          setState("failed");
+          setTimeout(() => loadChallenge(), 1500);
+        }
       }
     }, 800);
   };
+
+  if (state === "locked") {
+    return (
+      <div className="w-[320px] rounded-lg border border-destructive/50 bg-card overflow-hidden shadow-lg select-none"
+        style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+        <div className="px-4 py-3 bg-destructive text-destructive-foreground flex items-center justify-between">
+          <div className="text-sm font-semibold">暫時鎖定</div>
+          <Shield className="w-5 h-5" />
+        </div>
+        <div className="p-8 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <svg className="w-6 h-6 text-destructive" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="5" y1="5" x2="15" y2="15" />
+              <line x1="15" y1="5" x2="5" y2="15" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-foreground">您錯誤了太多次</p>
+          <p className="text-xs text-muted-foreground">請 {lockRemaining} 秒後再試</p>
+        </div>
+        <div className="px-3 py-2 border-t border-border flex justify-between items-center">
+          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Nobot</span>
+        </div>
+      </div>
+    );
+  }
 
   if (state === "verified") {
     return (
@@ -109,7 +165,10 @@ export function ImageCaptchaDemo({ demo = true }: ImageCaptchaDemoProps) {
       {/* Grid */}
       {state === "loading" ? (
         <div className="aspect-square flex items-center justify-center bg-secondary/30">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-muted-foreground">載入中...</span>
+          </div>
         </div>
       ) : error ? (
         <div className="aspect-square flex flex-col items-center justify-center bg-secondary/30 gap-2">
@@ -119,7 +178,6 @@ export function ImageCaptchaDemo({ demo = true }: ImageCaptchaDemoProps) {
       ) : (
         <div className="relative">
           <img src={image} alt="captcha grid" className="w-full aspect-square object-cover" />
-          {/* Clickable overlay grid */}
           <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
             {Array.from({ length: 9 }, (_, i) => (
               <button
