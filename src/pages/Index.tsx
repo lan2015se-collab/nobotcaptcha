@@ -102,10 +102,10 @@ const Index = () => {
             </div>
           </div>
           <p className="text-center text-xs text-muted-foreground mb-2 animate-fade-in" style={{ animationDelay: '0.5s', animationFillMode: 'both' }}>
-            ↑ 點擊試試看 — 這是 AI 即時生成的互動 Demo
+            ↑ 點擊試試看 — 即時互動 Demo
           </p>
           <p className="text-center text-[10px] text-muted-foreground/60 mt-2">
-            在控制台中可自由切換每個網站的驗證類型
+            在控制台中可自由切換每個網站的驗證類型與難度
           </p>
         </div>
       </section>
