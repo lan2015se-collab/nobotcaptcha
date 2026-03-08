@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      reviews: {
+        Row: {
+          approved: boolean
+          content: string
+          created_at: string
+          display_name: string
+          id: string
+          rating: number
+          user_id: string | null
+        }
+        Insert: {
+          approved?: boolean
+          content: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          rating?: number
+          user_id?: string | null
+        }
+        Update: {
+          approved?: boolean
+          content?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          rating?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sites: {
         Row: {
           captcha_type: Database["public"]["Enums"]["captcha_type"]
