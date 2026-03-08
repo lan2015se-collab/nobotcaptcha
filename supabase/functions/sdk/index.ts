@@ -450,7 +450,26 @@ const sdkScript = `
     container.insertBefore(footer, hiddenInput);
   }
 
-  // ── TEXT Widget ──
+  // ── Shared success UI ──
+  function showSuccess(container, hiddenInput, sitekey, score) {
+    container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+    while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+    var successIcon = document.createElement('div');
+    successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
+    successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    var successLabel = document.createElement('span');
+    successLabel.textContent = '驗證成功';
+    successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
+    var successBrand = document.createElement('div');
+    successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
+    successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
+    container.insertBefore(successIcon, hiddenInput);
+    container.insertBefore(successLabel, hiddenInput);
+    container.appendChild(successBrand);
+    emitToken(container, hiddenInput, sitekey, score);
+  }
+
+  // ── TEXT Widget (AI-generated with canvas fallback) ──
   function createTextWidget(container, sitekey) {
     container.style.cssText = 'width:320px;border-radius:8px;border:1px solid #334155;background:#1e293b;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);overflow:hidden;' + baseStyles;
 
@@ -460,30 +479,50 @@ const sdkScript = `
     hiddenInput.value = '';
     container.appendChild(hiddenInput);
 
-    renderTextChallenge(container, sitekey, hiddenInput, 0);
+    renderAITextChallenge(container, sitekey, hiddenInput, 0);
   }
 
-  function renderTextChallenge(container, sitekey, hiddenInput, attempt) {
+  function renderAITextChallenge(container, sitekey, hiddenInput, attempt) {
     while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
     if (!container.contains(hiddenInput)) container.appendChild(hiddenInput);
 
-    var answer = generateCaptchaText();
+    // Loading
+    var loadingDiv = document.createElement('div');
+    loadingDiv.style.cssText = 'padding:30px;text-align:center;';
+    loadingDiv.innerHTML = '<div style="width:24px;height:24px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin 0.8s linear infinite;margin:0 auto 8px;"></div><div style="font-size:12px;color:#94a3b8;">AI 生成驗證文字中...</div>';
+    container.insertBefore(loadingDiv, hiddenInput);
 
-    // Header
+    fetch(captchaEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'text' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.image) throw new Error('No image');
+      container.removeChild(loadingDiv);
+      buildTextUI(container, sitekey, hiddenInput, data.image, data.answer, attempt);
+    })
+    .catch(function() {
+      container.removeChild(loadingDiv);
+      // Fallback to canvas
+      renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt);
+    });
+  }
+
+  function buildTextUI(container, sitekey, hiddenInput, imageSrc, answer, attempt) {
     var header = document.createElement('div');
     header.style.cssText = 'padding:10px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
-    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字（不分大小寫）</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
     container.insertBefore(header, hiddenInput);
 
-    // Canvas
     var canvasWrap = document.createElement('div');
     canvasWrap.style.cssText = 'padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;';
 
-    var canvas = document.createElement('canvas');
-    canvas.style.cssText = 'border-radius:6px;border:1px solid #334155;';
-    drawDistortedText(canvas, answer);
+    var img = document.createElement('img');
+    img.src = imageSrc;
+    img.style.cssText = 'width:220px;height:70px;border-radius:6px;border:1px solid #334155;object-fit:cover;';
 
-    // Refresh button
     var refreshRow = document.createElement('div');
     refreshRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;';
 
@@ -491,9 +530,76 @@ const sdkScript = `
     refreshBtn.type = 'button';
     refreshBtn.innerHTML = '↻';
     refreshBtn.title = '換一張';
-    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;';
-    refreshBtn.onmouseenter = function() { refreshBtn.style.borderColor = '#6366f1'; };
-    refreshBtn.onmouseleave = function() { refreshBtn.style.borderColor = '#334155'; };
+    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    refreshBtn.addEventListener('click', function() {
+      renderAITextChallenge(container, sitekey, hiddenInput, attempt);
+    });
+
+    var textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.placeholder = '請輸入上方文字';
+    textInput.autocomplete = 'off';
+    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;';
+
+    refreshRow.appendChild(refreshBtn);
+    refreshRow.appendChild(textInput);
+    canvasWrap.appendChild(img);
+    canvasWrap.appendChild(refreshRow);
+    container.insertBefore(canvasWrap, hiddenInput);
+
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
+    var brandF = document.createElement('span');
+    brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
+    brandF.textContent = 'Nobot';
+
+    var verifyBtn = document.createElement('button');
+    verifyBtn.type = 'button';
+    verifyBtn.textContent = '驗證';
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
+
+    verifyBtn.addEventListener('click', function() {
+      if (textInput.value.toUpperCase() === answer.toUpperCase()) {
+        var result = analyzeBehavior();
+        result.score = Math.max(result.score, 0.8);
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
+        renderAITextChallenge(container, sitekey, hiddenInput, attempt + 1);
+      } else {
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
+        setTimeout(function() { renderAITextChallenge(container, sitekey, hiddenInput, 0); }, 2000);
+      }
+    });
+
+    textInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') verifyBtn.click(); });
+
+    footer.appendChild(brandF);
+    footer.appendChild(verifyBtn);
+    container.insertBefore(footer, hiddenInput);
+  }
+
+  // Canvas fallback for text captcha
+  function renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt) {
+    var answer = generateCaptchaText();
+
+    var header = document.createElement('div');
+    header.style.cssText = 'padding:10px 16px;background:#6366f1;color:white;display:flex;align-items:center;justify-content:space-between;';
+    header.innerHTML = '<div style="font-size:13px;font-weight:600;">請輸入圖片中的文字（不分大小寫）</div>';
+    container.insertBefore(header, hiddenInput);
+
+    var canvasWrap = document.createElement('div');
+    canvasWrap.style.cssText = 'padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;';
+    var canvas = document.createElement('canvas');
+    canvas.style.cssText = 'border-radius:6px;border:1px solid #334155;';
+    drawDistortedText(canvas, answer);
+
+    var refreshRow = document.createElement('div');
+    refreshRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;';
+    var refreshBtn = document.createElement('button');
+    refreshBtn.type = 'button';
+    refreshBtn.innerHTML = '↻';
+    refreshBtn.style.cssText = 'width:36px;height:36px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     refreshBtn.addEventListener('click', function() {
       answer = generateCaptchaText();
       drawDistortedText(canvas, answer);
@@ -504,9 +610,7 @@ const sdkScript = `
     textInput.type = 'text';
     textInput.placeholder = '請輸入上方文字';
     textInput.autocomplete = 'off';
-    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;transition:border-color 0.2s;';
-    textInput.onfocus = function() { textInput.style.borderColor = '#6366f1'; };
-    textInput.onblur = function() { textInput.style.borderColor = '#334155'; };
+    textInput.style.cssText = 'flex:1;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:15px;letter-spacing:3px;font-family:monospace;outline:none;';
 
     refreshRow.appendChild(refreshBtn);
     refreshRow.appendChild(textInput);
@@ -514,58 +618,33 @@ const sdkScript = `
     canvasWrap.appendChild(refreshRow);
     container.insertBefore(canvasWrap, hiddenInput);
 
-    // Footer
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #334155;';
-
     var brandF = document.createElement('span');
     brandF.style.cssText = 'font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;';
     brandF.textContent = 'Nobot';
-
     var verifyBtn = document.createElement('button');
     verifyBtn.type = 'button';
     verifyBtn.textContent = '驗證';
-    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;';
-    verifyBtn.onmouseenter = function() { verifyBtn.style.background = '#4f46e5'; };
-    verifyBtn.onmouseleave = function() { verifyBtn.style.background = '#6366f1'; };
-
+    verifyBtn.style.cssText = 'padding:6px 20px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
     verifyBtn.addEventListener('click', function() {
       if (textInput.value.toUpperCase() === answer.toUpperCase()) {
         var result = analyzeBehavior();
         result.score = Math.max(result.score, 0.8);
-        result.isHuman = true;
-        // Show success
-        container.style.cssText = 'width:320px;height:74px;border-radius:8px;border:1px solid #334155;background:#1e293b;display:flex;align-items:center;padding:0 12px;box-shadow:0 4px 24px -4px rgba(0,0,0,0.3);' + baseStyles;
+        showSuccess(container, hiddenInput, sitekey, result.score);
+      } else if (attempt < 2) {
         while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
-        var successIcon = document.createElement('div');
-        successIcon.innerHTML = '<svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>';
-        successIcon.style.cssText = 'width:28px;height:28px;border:2px solid #22c55e;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-        var successLabel = document.createElement('span');
-        successLabel.textContent = '驗證成功';
-        successLabel.style.cssText = 'margin-left:12px;font-size:14px;color:#22c55e;flex:1;';
-        var successBrand = document.createElement('div');
-        successBrand.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-        successBrand.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style="font-size:9px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Nobot</span>';
-        container.insertBefore(successIcon, hiddenInput);
-        container.insertBefore(successLabel, hiddenInput);
-        container.appendChild(successBrand);
-        emitToken(container, hiddenInput, sitekey, result.score);
+        renderCanvasTextChallenge(container, sitekey, hiddenInput, attempt + 1);
       } else {
-        if (attempt < 2) {
-          renderTextChallenge(container, sitekey, hiddenInput, attempt + 1);
-        } else {
-          header.style.background = '#ef4444';
-          header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗，請重試</div>';
-          setTimeout(function() { renderTextChallenge(container, sitekey, hiddenInput, 0); }, 2000);
-        }
+        header.style.background = '#ef4444';
+        header.innerHTML = '<div style="font-size:13px;font-weight:600;">驗證失敗</div>';
+        setTimeout(function() {
+          while (container.firstChild && container.firstChild !== hiddenInput) container.removeChild(container.firstChild);
+          renderCanvasTextChallenge(container, sitekey, hiddenInput, 0);
+        }, 2000);
       }
     });
-
-    // Enter key support
-    textInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') verifyBtn.click();
-    });
-
+    textInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') verifyBtn.click(); });
     footer.appendChild(brandF);
     footer.appendChild(verifyBtn);
     container.insertBefore(footer, hiddenInput);
