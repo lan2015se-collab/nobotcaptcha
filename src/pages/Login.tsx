@@ -28,12 +28,15 @@ export default function Login() {
   };
 
   const handleOAuth = async (provider: "google" | "apple") => {
-    const { error } = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
+    const result = await lovable.auth.signInWithOAuth(provider, {
+      redirect_uri: window.location.origin + "/dashboard",
     });
-    if (error) {
-      toast.error(error.message || "登入失敗");
+    if (result.error) {
+      toast.error(result.error.message || "登入失敗");
+      return;
     }
+    if (result.redirected) return;
+    navigate("/dashboard");
   };
 
   return (

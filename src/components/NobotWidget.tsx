@@ -25,15 +25,24 @@ async function sha256Hex(s: string): Promise<string> {
  * - For each salt, find a nonce so sha256(salt+nonce) starts with D leading "0"s
  * - Verification = all challenges solved within reasonable time
  */
-async function solveChallenge(salt: string, difficulty: number): Promise<number> {
+async function solveChallenge(
+  salt: string,
+  difficulty: number,
+  onTick?: (p: number) => void
+): Promise<number> {
   const prefix = "0".repeat(difficulty);
   let nonce = 0;
-  // hard cap to avoid runaway on slow devices
-  const MAX = 1_500_000;
+  const MAX = 500_000;
+  const expected = Math.pow(16, difficulty);
   while (nonce < MAX) {
     const h = await sha256Hex(salt + nonce);
     if (h.startsWith(prefix)) return nonce;
     nonce++;
+    if (onTick && nonce % 8 === 0) {
+      onTick(Math.min(95, Math.round((nonce / expected) * 100)));
+      // yield to event loop so spinner repaints
+      await new Promise((r) => setTimeout(r, 0));
+    }
   }
   throw new Error("PoW failed");
 }
@@ -41,8 +50,8 @@ async function solveChallenge(salt: string, difficulty: number): Promise<number>
 export function NobotWidget({
   siteKey = "demo",
   onVerify,
-  difficulty = 4,
-  challenges = 3,
+  difficulty = 3,
+  challenges = 1,
 }: NobotWidgetProps) {
   const [state, setState] = useState<WidgetState>("idle");
   const [progress, setProgress] = useState(0);
@@ -68,20 +77,22 @@ export function NobotWidget({
     if (state !== "idle") return;
     setState("verifying");
     setProgress(0);
+    // let React paint the spinner first
+    await new Promise((r) => setTimeout(r, 16));
 
     try {
       const started = Date.now();
       const solutions: number[] = [];
       for (let i = 0; i < challenges; i++) {
         const salt = crypto.randomUUID().replace(/-/g, "") + Date.now().toString(36);
-        const nonce = await solveChallenge(salt, difficulty);
+        const nonce = await solveChallenge(salt, difficulty, (p) => {
+          const base = (i / challenges) * 100;
+          setProgress(Math.round(base + p / challenges));
+        });
         solutions.push(nonce);
         setProgress(Math.round(((i + 1) / challenges) * 100));
       }
       const elapsed = Date.now() - started;
-      // suspicious if solved unrealistically fast (likely a script bypass)
-      if (elapsed < 80) throw new Error("too fast");
-
       setState("verified");
       setFailCount(0);
       const token = btoa(JSON.stringify({ siteKey, t: Date.now(), elapsed, solutions: solutions.length }));
