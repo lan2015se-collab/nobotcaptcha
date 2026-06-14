@@ -11,3 +11,18 @@ verify_jwt = false
 
 [functions.generate-captcha]
 verify_jwt = false
+
+[functions.pow]
+verify_jwt = false
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.notify-failure]
+verify_jwt = false
+
+[functions.notify-changelog]
+verify_jwt = false
+
+[functions.telegram-link]
+verify_jwt = false

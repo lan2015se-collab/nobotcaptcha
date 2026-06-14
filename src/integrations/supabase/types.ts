@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      changelog: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          published: boolean
+          title: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          title: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          title?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -101,6 +131,36 @@ export type Database = {
           secret_key?: string
           site_key?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_users: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          linked: boolean
+          linked_at: string | null
+          login_id: string
+          user_id: string | null
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          linked?: boolean
+          linked_at?: string | null
+          login_id: string
+          user_id?: string | null
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          linked?: boolean
+          linked_at?: string | null
+          login_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

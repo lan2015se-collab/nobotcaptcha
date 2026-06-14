@@ -18,6 +18,8 @@ import DashboardSettings from "./pages/DashboardSettings";
 import Docs from "./pages/Docs";
 import Reviews from "./pages/Reviews";
 import DashboardReviews from "./pages/DashboardReviews";
+import TelegramLogin from "./pages/TelegramLogin";
+import ChangeLog from "./pages/ChangeLog";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +38,9 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/reviews" element={<Reviews />} />
+            <Route path="/telegram/login" element={<TelegramLogin />} />
+            <Route path="/change-log" element={<ChangeLog />} />
+            <Route path="/change-log/:id" element={<ChangeLog />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<DashboardOverview />} />
               <Route path="api-keys" element={<DashboardApiKeys />} />

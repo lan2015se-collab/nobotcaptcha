@@ -276,6 +276,9 @@ const result = await r.json();
                 <div className="border-t border-border pt-5 space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Code className="w-4 h-4" /> 嵌入代碼
+                    <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-nobot-green/10 text-nobot-green border border-nobot-green/30">
+                      ✨ 自動更新最新版本
+                    </span>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold mb-2 block">📄 前端（加入 HTML）</Label>
