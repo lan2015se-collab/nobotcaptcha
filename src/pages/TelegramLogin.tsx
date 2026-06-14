@@ -10,12 +10,10 @@ import { Card } from "@/components/ui/card";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
 
-const GATEWAY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-
 export default function TelegramLogin() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const telegramId = params.get("id") || "";
 
   const [tab, setTab] = useState<"login" | "signup">("login");
@@ -25,42 +23,26 @@ export default function TelegramLogin() {
   const [linkOk, setLinkOk] = useState(false);
   const [valid, setValid] = useState<boolean | null>(null);
 
-  // Validate the id exists
   useEffect(() => {
     if (!telegramId) { setValid(false); return; }
     supabase.from("telegram_users").select("id").eq("login_id", telegramId).maybeSingle()
       .then(({ data }) => setValid(!!data));
   }, [telegramId]);
 
-  // If already logged in, perform link
   useEffect(() => {
     const doLink = async () => {
-      if (!user || !telegramId || linkOk) return;
-      const { error } = await supabase
-        .from("telegram_users")
-        .update({ user_id: user.id, linked: true, linked_at: new Date().toISOString() } as any)
-        .eq("login_id", telegramId);
-      if (!error) {
-        setLinkOk(true);
-        // Send confirmation message via edge function
-        await fetch(`${GATEWAY}/notify-changelog`, { method: "OPTIONS" }).catch(() => {});
-        // Use a small dedicated trigger by reading chat_id then call telegram-webhook? Simplest: call notify-changelog won't send "login successful". Send directly via telegram-webhook is wrong. Use a quick inline send:
-        const { data: tu } = await supabase
-          .from("telegram_users")
-          .select("chat_id")
-          .eq("login_id", telegramId)
-          .maybeSingle();
-        if (tu) {
-          // Call a server route to send login success; reuse notify-changelog payload but we want different text. Inline via gateway not possible client-side, so call edge function notify-changelog won't work. Add a tiny endpoint? Easier: call telegram via supabase function "notify-failure" with synthetic site won't work either.
-          // We'll just POST to notify-changelog won't fit. Use a dedicated channel: send via direct supabase.functions.invoke for a generic 'telegram-send' could be added; but simpler—we re-trigger /start path with custom text via webhook? No.
-          // Solution: a small inline edge-style call to telegram-webhook is wrong. Add a dedicated success ping via notify-changelog repurposed? No, keep clean — call a one-shot function below.
-        }
-      } else {
-        toast.error(error.message);
+      if (!user || !session || !telegramId || linkOk) return;
+      const { data, error } = await supabase.functions.invoke("telegram-link", {
+        body: { loginId: telegramId },
+      });
+      if (error || !data?.ok) {
+        toast.error(error?.message || data?.error || "綁定失敗");
+        return;
       }
+      setLinkOk(true);
     };
     doLink();
-  }, [user, telegramId, linkOk]);
+  }, [user, session, telegramId, linkOk]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +68,7 @@ export default function TelegramLogin() {
     const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin + `/telegram/login?id=${telegramId}`,
     });
-    if (result.error) toast.error(result.error.message || "Login failed");
+    if (result.error) toast.error(result.error.message || "登入失敗");
   };
 
   if (valid === false) {
