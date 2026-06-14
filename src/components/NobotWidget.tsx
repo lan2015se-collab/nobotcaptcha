@@ -6,33 +6,24 @@ interface NobotWidgetProps {
   siteKey?: string;
   onVerify?: (token: string) => void;
   demo?: boolean;
-  /** PoW difficulty: number of leading hex zeros required */
-  difficulty?: number;
-  /** PoW: number of challenges to solve */
-  challenges?: number;
+  level?: "easy" | "medium" | "hard" | "extreme";
 }
 
-// SHA-256 -> hex
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://buexhnmwraxzbtjymzwf.supabase.co";
+
 async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  const arr = Array.from(new Uint8Array(buf));
-  return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Cap-style Proof-of-Work CAPTCHA.
- * - Issues N random salts client-side (demo) or could be fetched from server
- * - For each salt, find a nonce so sha256(salt+nonce) starts with D leading "0"s
- * - Verification = all challenges solved within reasonable time
- */
-async function solveChallenge(
+async function solve(
   salt: string,
   difficulty: number,
   onTick?: (p: number) => void
 ): Promise<number> {
   const prefix = "0".repeat(difficulty);
   let nonce = 0;
-  const MAX = 500_000;
+  const MAX = 5_000_000;
   const expected = Math.pow(16, difficulty);
   while (nonce < MAX) {
     const h = await sha256Hex(salt + nonce);
@@ -40,18 +31,17 @@ async function solveChallenge(
     nonce++;
     if (onTick && nonce % 8 === 0) {
       onTick(Math.min(95, Math.round((nonce / expected) * 100)));
-      // yield to event loop so spinner repaints
       await new Promise((r) => setTimeout(r, 0));
     }
   }
-  throw new Error("PoW failed");
+  throw new Error("pow-timeout");
 }
 
 export function NobotWidget({
   siteKey = "demo",
   onVerify,
-  difficulty = 3,
-  challenges = 1,
+  demo = false,
+  level = "medium",
 }: NobotWidgetProps) {
   const [state, setState] = useState<WidgetState>("idle");
   const [progress, setProgress] = useState(0);
@@ -73,51 +63,64 @@ export function NobotWidget({
     return () => clearInterval(id);
   }, [state]);
 
+  const notifyFailure = useCallback(async () => {
+    if (demo || !siteKey || siteKey === "demo") return;
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/notify-failure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteKey, domain: window.location.hostname }),
+      });
+    } catch {}
+  }, [demo, siteKey]);
+
   const handleClick = useCallback(async () => {
     if (state !== "idle") return;
     setState("verifying");
     setProgress(0);
-    // let React paint the spinner first
     await new Promise((r) => setTimeout(r, 16));
 
     try {
-      const started = Date.now();
-      const solutions: number[] = [];
-      for (let i = 0; i < challenges; i++) {
-        const salt = crypto.randomUUID().replace(/-/g, "") + Date.now().toString(36);
-        const nonce = await solveChallenge(salt, difficulty, (p) => {
-          const base = (i / challenges) * 100;
-          setProgress(Math.round(base + p / challenges));
-        });
-        solutions.push(nonce);
-        setProgress(Math.round(((i + 1) / challenges) * 100));
-      }
-      const elapsed = Date.now() - started;
+      // 1. Get challenge from server
+      const chRes = await fetch(`${SUPABASE_URL}/functions/v1/pow?level=${level}`);
+      if (!chRes.ok) throw new Error("challenge-failed");
+      const ch = await chRes.json();
+
+      // 2. Solve PoW
+      const nonce = await solve(ch.salt, ch.difficulty, (p) => setProgress(p));
+      setProgress(100);
+
+      // 3. Submit for verification
+      const vRes = await fetch(`${SUPABASE_URL}/functions/v1/pow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ch, nonce }),
+      });
+      const v = await vRes.json();
+      if (!v.ok) throw new Error(v.error || "verify-failed");
+
       setState("verified");
       setFailCount(0);
-      const token = btoa(JSON.stringify({ siteKey, t: Date.now(), elapsed, solutions: solutions.length }));
-      onVerify?.(token);
-    } catch {
+      onVerify?.(v.token);
+    } catch (err) {
       const newFails = failCount + 1;
       setFailCount(newFails);
       if (newFails >= 5) {
         lockUntilRef.current = Date.now() + 60_000;
         setLockRemaining(60);
         setState("locked");
+        notifyFailure();
       } else {
         setState("failed");
         setTimeout(() => setState("idle"), 1800);
       }
     }
-  }, [state, siteKey, onVerify, failCount, difficulty, challenges]);
+  }, [state, level, failCount, onVerify, notifyFailure]);
 
-  // ----- Locked -----
   if (state === "locked") {
     return (
-      <div
-        className="w-[300px] rounded-md border border-red-200 bg-white px-3 py-3 select-none shadow-sm"
-        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-      >
+      <div className="w-[300px] rounded-md border border-red-200 bg-white px-3 py-3 select-none shadow-sm"
+        style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         <div className="flex items-center">
           <div className="w-7 h-7 rounded border-2 border-red-500 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-red-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
@@ -137,22 +140,14 @@ export function NobotWidget({
     );
   }
 
-  // ----- Main -----
   return (
-    <div
-      className="w-[300px] rounded-md border border-gray-200 bg-white px-3 py-3 select-none shadow-sm"
-      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-    >
+    <div className="w-[300px] rounded-md border border-gray-200 bg-white px-3 py-3 select-none shadow-sm"
+      style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
       <div className="flex items-center">
-        <button
-          onClick={handleClick}
-          disabled={state !== "idle"}
+        <button onClick={handleClick} disabled={state !== "idle"}
           className="w-7 h-7 rounded border-2 border-gray-300 bg-white flex items-center justify-center cursor-pointer transition-all duration-200 hover:border-indigo-500 disabled:cursor-default shrink-0"
-          aria-label="點擊驗證"
-        >
-          {state === "verifying" && (
-            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          )}
+          aria-label="點擊驗證">
+          {state === "verifying" && <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
           {state === "verified" && (
             <svg className="w-5 h-5 text-green-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="4,10 8,14 16,6" />
@@ -165,7 +160,6 @@ export function NobotWidget({
             </svg>
           )}
         </button>
-
         <span className="ml-3 text-sm text-gray-800">
           {state === "verifying" && `驗證中… ${progress}%`}
           {state === "verified" && <span className="text-green-600">驗證成功</span>}
@@ -173,13 +167,11 @@ export function NobotWidget({
           {state === "idle" && "我不是機器人"}
         </span>
       </div>
-
       {state === "verifying" && (
         <div className="mt-2 h-1 w-full bg-gray-100 rounded overflow-hidden">
           <div className="h-full bg-indigo-500 transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
-
       <div className="mt-2 pt-2 border-t border-gray-100 text-center">
         <span className="text-[10px] tracking-wider text-gray-400">Powered By NobotCAPTCHA</span>
       </div>
