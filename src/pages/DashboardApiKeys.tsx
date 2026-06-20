@@ -57,10 +57,12 @@ export default function DashboardApiKeys() {
   const { user } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
   const [newDomain, setNewDomain] = useState("");
+  const [newErrorEmail, setNewErrorEmail] = useState("");
   const [newType, setNewType] = useState<"checkbox" | "image" | "text">("checkbox");
   const [newDifficulty, setNewDifficulty] = useState<"easy" | "medium" | "hard" | "extreme">("medium");
   const [loading, setLoading] = useState(false);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
+  const [editingEmail, setEditingEmail] = useState<Record<string, string>>({});
 
   const fetchSites = async () => {
     if (!user) return;
