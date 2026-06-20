@@ -26,3 +26,7 @@ verify_jwt = false
 
 [functions.telegram-link]
 verify_jwt = false
+
+[functions.manual-passcode]
+verify_jwt = false
+

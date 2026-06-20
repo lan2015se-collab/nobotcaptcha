@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SDK_VERSION = "2.0.0";
+const SDK_VERSION = "2.1.0";
 const SDK_BUILT_AT = new Date().toISOString();
 
 const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT} */
@@ -25,6 +25,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
   var POW_URL = ORIGIN + '/functions/v1/pow';
   var NOTIFY_URL = ORIGIN + '/functions/v1/notify-failure';
   var CAPTCHA_URL = ORIGIN + '/functions/v1/generate-captcha';
+  var MCC_URL = ORIGIN + '/functions/v1/manual-passcode';
 
   // ── State trackers (used for telemetry only) ──
   var mouseMovements = [], keyTimings = [], touchPoints = [], startTime = Date.now();
@@ -72,6 +73,99 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         body: JSON.stringify({ siteKey: sitekey, domain: location.hostname })
       });
     } catch(e) {}
+  }
+
+  // ── Outage fallback: shown when our backend itself is unreachable ──
+  function showOutageFallback(container, sitekey) {
+    // notify the owner (apology email)
+    try {
+      fetch(MCC_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trigger-outage', siteKey: sitekey })
+      });
+    } catch(e) {}
+
+    // fetch error_email to display
+    var emailPromise = fetch(MCC_URL + '?siteKey=' + encodeURIComponent(sitekey))
+      .then(function(r) { return r.json(); }).catch(function() { return {}; });
+
+    // clear container, white card UI
+    while (container.firstChild) container.removeChild(container.firstChild);
+    container.style.cssText = 'width:320px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;padding:14px;' + BASE_STYLE;
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:13px;font-weight:600;color:#92400e;margin-bottom:6px;';
+    title.textContent = 'NobotCAPTCHA 暫時離線或無效的 API';
+    container.appendChild(title);
+
+    var desc = document.createElement('div');
+    desc.style.cssText = 'font-size:12px;color:#78350f;line-height:1.5;margin-bottom:10px;';
+    desc.textContent = '需要繼續請發送電子郵件，並在下方輸入一次性通關碼：';
+    container.appendChild(desc);
+
+    var emailLine = document.createElement('a');
+    emailLine.style.cssText = 'display:block;font-size:13px;font-weight:600;color:#6366f1;text-decoration:none;margin-bottom:10px;word-break:break-all;';
+    emailLine.textContent = '載入中…';
+    container.appendChild(emailLine);
+
+    emailPromise.then(function(d) {
+      var em = d && d.error_email;
+      if (em) {
+        emailLine.textContent = em;
+        emailLine.href = 'mailto:' + em + '?subject=' + encodeURIComponent('索取通關碼 - ' + location.hostname);
+      } else {
+        emailLine.textContent = '（站長未設定通知信箱）';
+        emailLine.removeAttribute('href');
+      }
+    });
+
+    var hidden = document.createElement('input');
+    hidden.type = 'hidden'; hidden.name = 'nobot-response'; hidden.value = '';
+    container.appendChild(hidden);
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;';
+    var input = document.createElement('input');
+    input.type = 'text'; input.placeholder = '輸入通關碼'; input.autocomplete = 'off';
+    input.style.cssText = 'flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;font-family:monospace;letter-spacing:2px;text-transform:uppercase;outline:none;';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = '驗證';
+    btn.style.cssText = 'padding:8px 14px;background:#6366f1;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;';
+    row.appendChild(input); row.appendChild(btn);
+    container.appendChild(row);
+
+    var msg = document.createElement('div');
+    msg.style.cssText = 'margin-top:8px;font-size:12px;min-height:16px;';
+    container.appendChild(msg);
+
+    var footer = document.createElement('div');
+    footer.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;font-size:10px;letter-spacing:.08em;color:#a16207;';
+    footer.textContent = 'Powered By NobotCAPTCHA';
+    container.appendChild(footer);
+
+    btn.addEventListener('click', function() {
+      var code = (input.value || '').trim().toUpperCase();
+      if (!code) return;
+      btn.disabled = true; msg.style.color = '#6b7280'; msg.textContent = '驗證中…';
+      fetch(MCC_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', siteKey: sitekey, code: code })
+      }).then(function(r) { return r.json(); }).then(function(v) {
+        btn.disabled = false;
+        if (v && v.ok) {
+          hidden.value = v.token;
+          msg.style.color = '#16a34a'; msg.textContent = '✓ 驗證成功';
+          container.dispatchEvent(new CustomEvent('nobot:verified', { detail: { token: v.token } }));
+        } else {
+          var map = { invalid: '通關碼錯誤', used: '此通關碼已使用', expired: '通關碼已過期' };
+          msg.style.color = '#dc2626'; msg.textContent = '✗ ' + (map[v && v.error] || '驗證失敗');
+        }
+      }).catch(function() {
+        btn.disabled = false;
+        msg.style.color = '#dc2626'; msg.textContent = '✗ 網路錯誤';
+      });
+    });
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') btn.click(); });
   }
 
   // ── Styles (white theme to match dashboard) ──
@@ -157,7 +251,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       bar.style.display = 'block';
 
       fetch(POW_URL + '?level=' + encodeURIComponent(level || 'medium'))
-        .then(function(r) { if (!r.ok) throw new Error('challenge'); return r.json(); })
+        .then(function(r) { if (!r.ok) throw new Error('SERVICE_DOWN'); return r.json(); })
         .then(function(ch) {
           return solvePoW(ch.salt, ch.difficulty, function(p) {
             label.textContent = '驗證中… ' + p + '%';
@@ -169,6 +263,9 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ salt: ch.salt, ts: ch.ts, difficulty: ch.difficulty, sig: ch.sig, nonce: nonce })
+            }).then(function(r) {
+              if (!r.ok && r.status >= 500) throw new Error('SERVICE_DOWN');
+              return r;
             });
           });
         })
@@ -183,7 +280,11 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
           hidden.value = v.token;
           container.dispatchEvent(new CustomEvent('nobot:verified', { detail: { token: v.token } }));
         })
-        .catch(function() {
+        .catch(function(err) {
+          if (err && err.message === 'SERVICE_DOWN') {
+            showOutageFallback(container, sitekey);
+            return;
+          }
           failCount++;
           bar.style.display = 'none';
           if (failCount >= 5) {
@@ -223,11 +324,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         buildImageUI(container, sitekey, hidden, d, attempt, failTotal);
       })
       .catch(function() {
-        container.removeChild(loading);
-        var err = document.createElement('div');
-        err.style.cssText = 'padding:24px;text-align:center;color:#dc2626;font-size:13px;';
-        err.textContent = '載入失敗，請重新整理';
-        container.insertBefore(err, hidden);
+        showOutageFallback(container, sitekey);
       });
   }
   function buildImageUI(container, sitekey, hidden, data, attempt, failTotal) {
@@ -328,11 +425,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         buildTextUI(container, sitekey, hidden, d.image, d.answer, failTotal);
       })
       .catch(function() {
-        container.removeChild(loading);
-        var e = document.createElement('div');
-        e.style.cssText = 'padding:24px;text-align:center;color:#dc2626;font-size:13px;';
-        e.textContent = '載入失敗，請重新整理';
-        container.insertBefore(e, hidden);
+        showOutageFallback(container, sitekey);
       });
   }
   function buildTextUI(container, sitekey, hidden, imageSrc, answer, failTotal) {

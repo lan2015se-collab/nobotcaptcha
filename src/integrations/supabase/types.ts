@@ -44,6 +44,47 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_passcodes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          site_id: string
+          used: boolean
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          site_id: string
+          used?: boolean
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          site_id?: string
+          used?: boolean
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_passcodes_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -107,6 +148,7 @@ export type Database = {
           created_at: string
           difficulty: Database["public"]["Enums"]["captcha_difficulty"]
           domain: string
+          error_email: string | null
           id: string
           secret_key: string
           site_key: string
@@ -117,6 +159,7 @@ export type Database = {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["captcha_difficulty"]
           domain: string
+          error_email?: string | null
           id?: string
           secret_key?: string
           site_key?: string
@@ -127,6 +170,7 @@ export type Database = {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["captcha_difficulty"]
           domain?: string
+          error_email?: string | null
           id?: string
           secret_key?: string
           site_key?: string

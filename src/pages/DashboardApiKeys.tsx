@@ -17,6 +17,7 @@ type Site = {
   created_at: string;
   captcha_type: "checkbox" | "image" | "text";
   difficulty: "easy" | "medium" | "hard" | "extreme";
+  error_email: string | null;
 };
 
 function CopyBlock({ code, label }: { code: string; label?: string }) {
@@ -56,10 +57,12 @@ export default function DashboardApiKeys() {
   const { user } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
   const [newDomain, setNewDomain] = useState("");
+  const [newErrorEmail, setNewErrorEmail] = useState("");
   const [newType, setNewType] = useState<"checkbox" | "image" | "text">("checkbox");
   const [newDifficulty, setNewDifficulty] = useState<"easy" | "medium" | "hard" | "extreme">("medium");
   const [loading, setLoading] = useState(false);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
+  const [editingEmail, setEditingEmail] = useState<Record<string, string>>({});
 
   const fetchSites = async () => {
     if (!user) return;
@@ -72,19 +75,35 @@ export default function DashboardApiKeys() {
   const addSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newDomain.trim()) return;
+    const email = newErrorEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("請輸入有效的錯誤通知電子郵件");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.from("sites").insert({
       user_id: user.id,
       domain: newDomain.trim(),
       captcha_type: newType,
       difficulty: newDifficulty,
+      error_email: email,
     } as any);
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("網站已新增");
     setNewDomain("");
+    setNewErrorEmail("");
     fetchSites();
   };
+
+  const updateErrorEmail = async (id: string, email: string) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("電子郵件格式錯誤"); return; }
+    const { error } = await supabase.from("sites").update({ error_email: email } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("通知信箱已更新");
+    fetchSites();
+  };
+
 
   const deleteSite = async (id: string) => {
     const { error } = await supabase.from("sites").delete().eq("id", id);
@@ -148,12 +167,26 @@ const result = await r.json();
           <CardTitle className="text-base">新增網站</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={addSite} className="flex gap-3">
-            <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="example.com" className="flex-1" />
-            <Button type="submit" disabled={loading} size="sm">
-              <Plus className="w-4 h-4 mr-1" /> 新增
-            </Button>
+          <form onSubmit={addSite} className="space-y-3">
+            <div className="flex gap-3">
+              <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="example.com" className="flex-1" />
+              <Button type="submit" disabled={loading} size="sm">
+                <Plus className="w-4 h-4 mr-1" /> 新增
+              </Button>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">
+                錯誤通知電子郵件 <span className="text-destructive">*</span>
+                <span className="ml-2 opacity-70">服務異常時，此信箱會顯示給你的網站使用者以索取通關碼</span>
+              </Label>
+              <Input
+                type="email" required value={newErrorEmail}
+                onChange={e => setNewErrorEmail(e.target.value)}
+                placeholder="support@yoursite.com"
+              />
+            </div>
           </form>
+
 
           {/* Captcha type */}
           <div>
@@ -248,6 +281,28 @@ const result = await r.json();
                     ))}
                   </div>
                 </div>
+
+                {/* Error email */}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">
+                    錯誤通知電子郵件 <span className="text-destructive">*</span>
+                    <span className="ml-2 opacity-70">服務異常時將自動匯入此信箱顯示給使用者</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      defaultValue={site.error_email || ""}
+                      onChange={e => setEditingEmail(p => ({ ...p, [site.id]: e.target.value }))}
+                      placeholder="support@yoursite.com"
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => updateErrorEmail(site.id, editingEmail[site.id] ?? site.error_email ?? "")}
+                    >儲存</Button>
+                  </div>
+                </div>
+
 
                 {/* Keys */}
                 <div className="space-y-3">
