@@ -20,6 +20,7 @@ import Reviews from "./pages/Reviews";
 import DashboardReviews from "./pages/DashboardReviews";
 import TelegramLogin from "./pages/TelegramLogin";
 import ChangeLog from "./pages/ChangeLog";
+import AutoUpdate from "./pages/AutoUpdate";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/telegram/login" element={<TelegramLogin />} />
             <Route path="/change-log" element={<ChangeLog />} />
             <Route path="/change-log/:id" element={<ChangeLog />} />
+            <Route path="/auto-update" element={<AutoUpdate />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<DashboardOverview />} />
               <Route path="api-keys" element={<DashboardApiKeys />} />
