@@ -25,6 +25,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
   var POW_URL = ORIGIN + '/functions/v1/pow';
   var NOTIFY_URL = ORIGIN + '/functions/v1/notify-failure';
   var CAPTCHA_URL = ORIGIN + '/functions/v1/generate-captcha';
+  var MCC_URL = ORIGIN + '/functions/v1/manual-passcode';
 
   // ── State trackers (used for telemetry only) ──
   var mouseMovements = [], keyTimings = [], touchPoints = [], startTime = Date.now();
