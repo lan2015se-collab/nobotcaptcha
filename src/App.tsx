@@ -44,6 +44,7 @@ const App = () => (
             <Route path="/change-log" element={<ChangeLog />} />
             <Route path="/change-log/:id" element={<ChangeLog />} />
             <Route path="/auto-update" element={<AutoUpdate />} />
+            <Route path="/manual-customs-clearance" element={<ManualCustomsClearance />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<DashboardOverview />} />
               <Route path="api-keys" element={<DashboardApiKeys />} />
