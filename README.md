@@ -42,9 +42,9 @@
 有技術上等等的問題嗎？
 
 請使用下方聯絡資訊與我們聯係
-Site：@nobot.site
-OpiNick：@nobot.hi
-Email：lan.2015.se@gmail.com
+* **Site**：@nobot.site
+* **OpiNick**：@nobot.hi
+* **Email**：lan.2015.se@gmail.com
 
 ## 相關連結
 
