@@ -167,12 +167,26 @@ const result = await r.json();
           <CardTitle className="text-base">新增網站</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={addSite} className="flex gap-3">
-            <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="example.com" className="flex-1" />
-            <Button type="submit" disabled={loading} size="sm">
-              <Plus className="w-4 h-4 mr-1" /> 新增
-            </Button>
+          <form onSubmit={addSite} className="space-y-3">
+            <div className="flex gap-3">
+              <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="example.com" className="flex-1" />
+              <Button type="submit" disabled={loading} size="sm">
+                <Plus className="w-4 h-4 mr-1" /> 新增
+              </Button>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">
+                錯誤通知電子郵件 <span className="text-destructive">*</span>
+                <span className="ml-2 opacity-70">服務異常時，此信箱會顯示給你的網站使用者以索取通關碼</span>
+              </Label>
+              <Input
+                type="email" required value={newErrorEmail}
+                onChange={e => setNewErrorEmail(e.target.value)}
+                placeholder="support@yoursite.com"
+              />
+            </div>
           </form>
+
 
           {/* Captcha type */}
           <div>
