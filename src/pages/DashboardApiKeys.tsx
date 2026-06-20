@@ -282,6 +282,28 @@ const result = await r.json();
                   </div>
                 </div>
 
+                {/* Error email */}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">
+                    錯誤通知電子郵件 <span className="text-destructive">*</span>
+                    <span className="ml-2 opacity-70">服務異常時將自動匯入此信箱顯示給使用者</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      defaultValue={site.error_email || ""}
+                      onChange={e => setEditingEmail(p => ({ ...p, [site.id]: e.target.value }))}
+                      placeholder="support@yoursite.com"
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => updateErrorEmail(site.id, editingEmail[site.id] ?? site.error_email ?? "")}
+                    >儲存</Button>
+                  </div>
+                </div>
+
+
                 {/* Keys */}
                 <div className="space-y-3">
                   <div>
