@@ -75,19 +75,35 @@ export default function DashboardApiKeys() {
   const addSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newDomain.trim()) return;
+    const email = newErrorEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("請輸入有效的錯誤通知電子郵件");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.from("sites").insert({
       user_id: user.id,
       domain: newDomain.trim(),
       captcha_type: newType,
       difficulty: newDifficulty,
+      error_email: email,
     } as any);
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("網站已新增");
     setNewDomain("");
+    setNewErrorEmail("");
     fetchSites();
   };
+
+  const updateErrorEmail = async (id: string, email: string) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("電子郵件格式錯誤"); return; }
+    const { error } = await supabase.from("sites").update({ error_email: email } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("通知信箱已更新");
+    fetchSites();
+  };
+
 
   const deleteSite = async (id: string) => {
     const { error } = await supabase.from("sites").delete().eq("id", id);
