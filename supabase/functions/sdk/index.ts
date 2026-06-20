@@ -324,11 +324,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         buildImageUI(container, sitekey, hidden, d, attempt, failTotal);
       })
       .catch(function() {
-        container.removeChild(loading);
-        var err = document.createElement('div');
-        err.style.cssText = 'padding:24px;text-align:center;color:#dc2626;font-size:13px;';
-        err.textContent = '載入失敗，請重新整理';
-        container.insertBefore(err, hidden);
+        showOutageFallback(container, sitekey);
       });
   }
   function buildImageUI(container, sitekey, hidden, data, attempt, failTotal) {
