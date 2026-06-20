@@ -46,6 +46,8 @@ export default function TelegramLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (valid !== true) { toast.error("無效的 Telegram ID，請從 Bot 取得正確連結"); return; }
+    if (!email || !password) { toast.error("請輸入 Email 與密碼"); return; }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -54,6 +56,9 @@ export default function TelegramLogin() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (valid !== true) { toast.error("無效的 Telegram ID，請從 Bot 取得正確連結"); return; }
+    if (!email || !password) { toast.error("請輸入 Email 與密碼"); return; }
+    if (password.length < 6) { toast.error("密碼至少 6 個字元"); return; }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email, password,
@@ -61,10 +66,11 @@ export default function TelegramLogin() {
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else toast.success("Account created");
+    else toast.success("註冊成功");
   };
 
   const handleOAuth = async (provider: "google" | "apple") => {
+    if (valid !== true) { toast.error("無效的 Telegram ID"); return; }
     const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin + `/telegram/login?id=${telegramId}`,
     });
@@ -110,6 +116,8 @@ export default function TelegramLogin() {
           <div className="mb-4 p-3 rounded-md bg-primary/5 border border-primary/20 text-center">
             <p className="text-xs text-muted-foreground">Your Telegram ID</p>
             <p className="text-lg font-mono font-bold tracking-wider">{telegramId}</p>
+            {valid === null && <p className="text-[10px] text-muted-foreground mt-1">驗證 ID 中…</p>}
+            {valid === true && <p className="text-[10px] text-green-600 mt-1">✓ 已確認</p>}
           </div>
 
           <div className="flex gap-2 mb-4 text-sm">
