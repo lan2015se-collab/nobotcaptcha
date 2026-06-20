@@ -251,7 +251,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       bar.style.display = 'block';
 
       fetch(POW_URL + '?level=' + encodeURIComponent(level || 'medium'))
-        .then(function(r) { if (!r.ok) throw new Error('challenge'); return r.json(); })
+        .then(function(r) { if (!r.ok) throw new Error('SERVICE_DOWN'); return r.json(); })
         .then(function(ch) {
           return solvePoW(ch.salt, ch.difficulty, function(p) {
             label.textContent = '驗證中… ' + p + '%';
@@ -263,6 +263,9 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ salt: ch.salt, ts: ch.ts, difficulty: ch.difficulty, sig: ch.sig, nonce: nonce })
+            }).then(function(r) {
+              if (!r.ok && r.status >= 500) throw new Error('SERVICE_DOWN');
+              return r;
             });
           });
         })
@@ -277,7 +280,11 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
           hidden.value = v.token;
           container.dispatchEvent(new CustomEvent('nobot:verified', { detail: { token: v.token } }));
         })
-        .catch(function() {
+        .catch(function(err) {
+          if (err && err.message === 'SERVICE_DOWN') {
+            showOutageFallback(container, sitekey);
+            return;
+          }
           failCount++;
           bar.style.display = 'none';
           if (failCount >= 5) {
