@@ -1,4 +1,4 @@
-# 歡迎來到NobotCAPTCHA的GitHub專案
+# 歡迎來到NobotCAPTCHA的GitHub專案   中文 CHINESE VER.
 
 ## 介紹
 
@@ -42,9 +42,8 @@
 有技術上等等的問題嗎？
 
 請使用下方聯絡資訊與我們聯係
-
 Site：@nobot.site
-
+OpiNick：@nobot.hi
 Email：lan.2015.se@gmail.com
 
 ## 相關連結
@@ -52,3 +51,43 @@ Email：lan.2015.se@gmail.com
 [NobotCAPTCHA 官方網站](nobot-captcha.lovable.app)
 
 [NobotCAPTCHA GitHub](https://github.com/lan2015se-collab/nobotcaptcha)
+
+
+# Welcome to the NobotCAPTCHA GitHub Project   ENGLISH Ver.
+
+## Introduction
+
+We are NobotCAPTCHA.
+
+Our website (nobot-captcha.lovable.app) was built using Lovable—an AI-powered development agent that helps you build full-stack applications using natural language.
+
+During our journey, we discovered that many scam syndicates attempt to use platforms like Lovable, Netlify, and Vercel to create phishing websites. To combat this, we decided on **February 27, 2026**, to create a genuinely free, anti-bot CAPTCHA application to help secure the web.
+
+## Features
+
+* **100% Free:** Access all features with zero cost.
+* **Safe & Secure:** A trusted platform built specifically to counter scam and phishing activities.
+* **Simple Integration:** Clean checkbox and text-based verification.
+* **Accurate Bot Detection:** Highly precise human-versus-machine validation.
+* **Analytics Dashboard:** Backend insights coupled with a quick setup guide for your website or app.
+
+## How to Use
+
+1. **Visit the Website:** Go to the [NobotCAPTCHA Official Website](https://nobot-captcha.lovable.app).
+2. **Sign Up:** Click the **"Get Started for Free"** button and complete your registration.
+3. **Get Your Key:** Log in, click the menu button in the top-left corner, and select **"API Keys"**.
+4. **Register Your Domain:** Enter the URL of the website where you want to use NobotCAPTCHA and click **"Add"**.
+5. **Deploy:** Copy your unique code snippet provided by the dashboard and paste it into your website's code.
+
+## Contact Us
+
+Having technical issues or questions? Reach out to us via the following channels:
+
+* **Site:** @nobot.site
+* **Email:** lan.2015.se@gmail.com
+* **OpiNick:** @nobot.hi
+
+## Related Links
+
+* [NobotCAPTCHA Official Website](https://nobot-captcha.lovable.app)
+* [NobotCAPTCHA GitHub Repository](https://github.com/lan2015se-collab/nobotcaptcha)
