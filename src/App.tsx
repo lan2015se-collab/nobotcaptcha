@@ -21,6 +21,7 @@ import DashboardReviews from "./pages/DashboardReviews";
 import TelegramLogin from "./pages/TelegramLogin";
 import ChangeLog from "./pages/ChangeLog";
 import AutoUpdate from "./pages/AutoUpdate";
+import ManualCustomsClearance from "./pages/ManualCustomsClearance";
 
 const queryClient = new QueryClient();
 
