@@ -17,6 +17,7 @@ type Site = {
   created_at: string;
   captcha_type: "checkbox" | "image" | "text";
   difficulty: "easy" | "medium" | "hard" | "extreme";
+  error_email: string | null;
 };
 
 function CopyBlock({ code, label }: { code: string; label?: string }) {
