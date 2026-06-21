@@ -44,7 +44,8 @@ export default function ManualCustomsClearance() {
     });
     setGenerating(null);
     if (r.error || !r.data?.ok) { toast.error(r.data?.error || "生成失敗"); return; }
-    setGenerated(prev => ({ ...prev, [siteId]: { siteId, code: r.data.code, at: Date.now() } }));
+    const mins = r.data.expires_in_minutes ?? 30;
+    setGenerated(prev => ({ ...prev, [siteId]: { siteId, code: r.data.code, expiresAt: Date.now() + mins * 60000 } }));
     toast.success("通關碼已生成（30 分鐘內有效，只能使用一次）");
   };
 
