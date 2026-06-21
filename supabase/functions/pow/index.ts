@@ -34,8 +34,27 @@ function difficultyFor(level?: string): number {
   }
 }
 
+// Per-IP rate limit: 30 requests / minute
+const RL = new Map<string, number[]>();
+function rateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const arr = (RL.get(key) || []).filter((t) => now - t < windowMs);
+  if (arr.length >= max) { RL.set(key, arr); return false; }
+  arr.push(now); RL.set(key, arr);
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    || req.headers.get("cf-connecting-ip") || "unknown";
+  if (!rateLimit(`pow:${ip}`, 30, 60_000)) {
+    return new Response(JSON.stringify({ ok: false, error: "rate-limited" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
 
   const url = new URL(req.url);
 
