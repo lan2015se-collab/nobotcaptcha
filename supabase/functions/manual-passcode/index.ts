@@ -35,9 +35,25 @@ function randomCode(len = 8) {
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ── Simple per-IP rate limiter (sliding window, in-memory) ──
+const RL = new Map<string, number[]>();
+function rateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const arr = (RL.get(key) || []).filter((t) => now - t < windowMs);
+  if (arr.length >= max) { RL.set(key, arr); return false; }
+  arr.push(now); RL.set(key, arr);
+  return true;
+}
+function clientIP(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    || req.headers.get("cf-connecting-ip")
+    || "unknown";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const url = new URL(req.url);
+  const ip = clientIP(req);
 
   try {
     // ── Public: get error_email for fallback UI ──
