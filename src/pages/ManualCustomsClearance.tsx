@@ -4,11 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Shield, Sparkles, Copy, Check, Loader2 } from "lucide-react";
+import { Shield, Sparkles, Copy, Check, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 type Site = { id: string; domain: string; site_key: string; error_email: string | null };
-type Generated = { siteId: string; code: string; at: number };
+type Generated = { siteId: string; code: string; expiresAt: number };
 
 export default function ManualCustomsClearance() {
   const { user, loading: authLoading } = useAuth();
