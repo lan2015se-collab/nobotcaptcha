@@ -351,9 +351,12 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
 
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f3f4f6;';
-    var brand = document.createElement('span');
-    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;';
-    brand.textContent = 'Powered By NobotCAPTCHA';
+    var brand = document.createElement('a');
+    brand.href = 'mailto:aicoding2025tw@gmail.com?subject=' + encodeURIComponent('NobotCAPTCHA 錯誤回報 - ' + location.hostname);
+    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;text-decoration:none;cursor:pointer;';
+    brand.textContent = '回報錯誤';
+    brand.onmouseenter = function() { brand.style.color = '#6b7280'; };
+    brand.onmouseleave = function() { brand.style.color = '#9ca3af'; };
     var btn = document.createElement('button');
     btn.type = 'button'; btn.textContent = '驗證';
     btn.style.cssText = 'padding:6px 18px;background:#6366f1;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
