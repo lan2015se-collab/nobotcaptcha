@@ -17,6 +17,12 @@ export default function ManualCustomsClearance() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [generated, setGenerated] = useState<Record<string, Generated>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick(x => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login?redirect=/manual-customs-clearance");
