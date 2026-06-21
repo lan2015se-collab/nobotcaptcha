@@ -207,24 +207,14 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
 
     row.appendChild(box); row.appendChild(label);
 
-    var bar = document.createElement('div');
-    bar.style.cssText = 'margin-top:8px;height:4px;background:#f3f4f6;border-radius:2px;overflow:hidden;display:none;';
-    var barFill = document.createElement('div');
-    barFill.style.cssText = 'height:100%;width:0%;background:#6366f1;transition:width .15s;';
-    bar.appendChild(barFill);
-
-    var footer = document.createElement('div');
-    footer.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;text-align:center;font-size:10px;letter-spacing:.08em;color:#9ca3af;';
-    footer.textContent = 'Powered By NobotCAPTCHA';
-
+    var footer = makeFooter();
     container.insertBefore(row, hidden);
-    container.insertBefore(bar, hidden);
     container.insertBefore(footer, hidden);
 
     var state = 'idle', failCount = 0, lockUntil = 0;
 
     function showSpinner() {
-      box.innerHTML = '<div style="width:18px;height:18px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin .8s linear infinite;"></div>';
+      box.innerHTML = '<div style="width:16px;height:16px;box-sizing:border-box;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin .8s linear infinite;flex-shrink:0;"></div>';
     }
     function showCheck() {
       box.style.borderColor = '#22c55e';
