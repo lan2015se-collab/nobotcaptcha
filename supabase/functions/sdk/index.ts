@@ -138,9 +138,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
     msg.style.cssText = 'margin-top:8px;font-size:12px;min-height:16px;';
     container.appendChild(msg);
 
-    var footer = document.createElement('div');
-    footer.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;font-size:10px;letter-spacing:.08em;color:#a16207;';
-    footer.textContent = 'Powered By NobotCAPTCHA';
+    var footer = makeFooter('margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;');
     container.appendChild(footer);
 
     btn.addEventListener('click', function() {
