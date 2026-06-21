@@ -92,16 +92,40 @@ export default function ManualCustomsClearance() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {g ? (
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-center font-mono text-2xl tracking-[0.4em] py-3 rounded-md bg-primary/5 border border-primary/20 text-primary">
-                          {g.code}
-                        </code>
-                        <Button variant="outline" size="icon" onClick={() => copy(g.code)}>
-                          {copied === g.code ? <Check className="w-4 h-4 text-nobot-green" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    ) : null}
+                    {g ? (() => {
+                      const msLeft = Math.max(0, g.expiresAt - Date.now());
+                      const expired = msLeft <= 0;
+                      const totalMs = 30 * 60000;
+                      const pct = Math.max(0, Math.min(100, (msLeft / totalMs) * 100));
+                      const mm = Math.floor(msLeft / 60000).toString().padStart(2, "0");
+                      const ss = Math.floor((msLeft % 60000) / 1000).toString().padStart(2, "0");
+                      const danger = msLeft < 60000;
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <code className={`flex-1 text-center font-mono text-2xl tracking-[0.4em] py-3 rounded-md border ${expired ? "bg-destructive/5 border-destructive/30 text-destructive line-through" : "bg-primary/5 border-primary/20 text-primary"}`}>
+                              {g.code}
+                            </code>
+                            <Button variant="outline" size="icon" onClick={() => copy(g.code)} disabled={expired}>
+                              {copied === g.code ? <Check className="w-4 h-4 text-nobot-green" /> : <Copy className="w-4 h-4" />}
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={`flex items-center gap-1 font-mono ${expired ? "text-destructive" : danger ? "text-orange-500" : "text-muted-foreground"}`}>
+                              <Clock className="w-3.5 h-3.5" />
+                              {expired ? "已過期" : `剩餘 ${mm}:${ss}`}
+                            </span>
+                            <span className="text-muted-foreground">30 分鐘內、單次有效</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${expired ? "bg-destructive" : danger ? "bg-orange-500" : "bg-primary"}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })() : null}
                     <Button onClick={() => generate(s.id)} disabled={generating === s.id} className="w-full">
                       {generating === s.id
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 生成中…</>
