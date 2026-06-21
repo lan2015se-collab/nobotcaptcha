@@ -72,6 +72,10 @@ Deno.serve(async (req) => {
 
     // ── Public: verify code from end-user ──
     if (action === "verify") {
+      if (!rateLimit(`verify:${ip}`, 10, 60_000)) {
+        return new Response(JSON.stringify({ ok: false, error: "rate-limited" }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const { siteKey, code } = body;
       if (!siteKey || !code) {
         return new Response(JSON.stringify({ ok: false, error: "missing" }),
