@@ -107,6 +107,10 @@ Deno.serve(async (req) => {
 
     // ── Public: trigger outage apology email to site owner ──
     if (action === "trigger-outage") {
+      if (!rateLimit(`outage:${ip}`, 3, 60_000)) {
+        return new Response(JSON.stringify({ ok: false, error: "rate-limited" }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const { siteKey } = body;
       const { data: site } = await admin.from("sites")
         .select("id, user_id, domain").eq("site_key", siteKey).maybeSingle();
