@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SDK_VERSION = "2.1.0";
+const SDK_VERSION = "2.2.0";
 const SDK_BUILT_AT = new Date().toISOString();
 
 const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT} */
@@ -138,9 +138,7 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
     msg.style.cssText = 'margin-top:8px;font-size:12px;min-height:16px;';
     container.appendChild(msg);
 
-    var footer = document.createElement('div');
-    footer.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;font-size:10px;letter-spacing:.08em;color:#a16207;';
-    footer.textContent = 'Powered By NobotCAPTCHA';
+    var footer = makeFooter('margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;');
     container.appendChild(footer);
 
     btn.addEventListener('click', function() {
@@ -171,6 +169,20 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
   // ── Styles (white theme to match dashboard) ──
   var BASE_STYLE = "font-family:'Space Grotesk',-apple-system,system-ui,sans-serif;user-select:none;";
 
+  // ── Shared footer: "回報錯誤" mailto button ──
+  function makeFooter(style) {
+    var f = document.createElement('div');
+    f.style.cssText = (style || 'margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;text-align:center;');
+    var a = document.createElement('a');
+    a.href = 'mailto:aicoding2025tw@gmail.com?subject=' + encodeURIComponent('NobotCAPTCHA 錯誤回報 - ' + location.hostname);
+    a.textContent = '回報錯誤';
+    a.style.cssText = 'font-size:10px;letter-spacing:.08em;color:#9ca3af;text-decoration:none;cursor:pointer;background:none;border:none;padding:0;';
+    a.onmouseenter = function() { a.style.color = '#6b7280'; };
+    a.onmouseleave = function() { a.style.color = '#9ca3af'; };
+    f.appendChild(a);
+    return f;
+  }
+
   // ── CHECKBOX widget (server-verified PoW) ──
   function createCheckboxWidget(container, sitekey, level) {
     container.style.cssText = 'width:300px;border-radius:6px;border:1px solid #e5e7eb;background:#ffffff;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);' + BASE_STYLE;
@@ -193,24 +205,14 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
 
     row.appendChild(box); row.appendChild(label);
 
-    var bar = document.createElement('div');
-    bar.style.cssText = 'margin-top:8px;height:4px;background:#f3f4f6;border-radius:2px;overflow:hidden;display:none;';
-    var barFill = document.createElement('div');
-    barFill.style.cssText = 'height:100%;width:0%;background:#6366f1;transition:width .15s;';
-    bar.appendChild(barFill);
-
-    var footer = document.createElement('div');
-    footer.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;text-align:center;font-size:10px;letter-spacing:.08em;color:#9ca3af;';
-    footer.textContent = 'Powered By NobotCAPTCHA';
-
+    var footer = makeFooter();
     container.insertBefore(row, hidden);
-    container.insertBefore(bar, hidden);
     container.insertBefore(footer, hidden);
 
     var state = 'idle', failCount = 0, lockUntil = 0;
 
     function showSpinner() {
-      box.innerHTML = '<div style="width:18px;height:18px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin .8s linear infinite;"></div>';
+      box.innerHTML = '<div style="width:16px;height:16px;box-sizing:border-box;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:nobot-spin .8s linear infinite;flex-shrink:0;"></div>';
     }
     function showCheck() {
       box.style.borderColor = '#22c55e';
@@ -226,8 +228,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       box.innerHTML = '';
       label.textContent = '我不是機器人';
       label.style.color = '#1f2937';
-      bar.style.display = 'none';
-      barFill.style.width = '0%';
     }
     function startLock() {
       var remaining = 60;
@@ -247,18 +247,12 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       if (state !== 'idle') return;
       state = 'verifying';
       showSpinner();
-      label.textContent = '驗證中… 0%';
-      bar.style.display = 'block';
+      label.textContent = '驗證中…';
 
       fetch(POW_URL + '?level=' + encodeURIComponent(level || 'medium'))
         .then(function(r) { if (!r.ok) throw new Error('SERVICE_DOWN'); return r.json(); })
         .then(function(ch) {
-          return solvePoW(ch.salt, ch.difficulty, function(p) {
-            label.textContent = '驗證中… ' + p + '%';
-            barFill.style.width = p + '%';
-          }).then(function(nonce) {
-            barFill.style.width = '100%';
-            label.textContent = '驗證中… 100%';
+          return solvePoW(ch.salt, ch.difficulty).then(function(nonce) {
             return fetch(POW_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -273,7 +267,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         .then(function(v) {
           if (!v || !v.ok) throw new Error(v && v.error || 'verify');
           state = 'verified';
-          bar.style.display = 'none';
           showCheck();
           label.textContent = '驗證成功';
           label.style.color = '#16a34a';
@@ -286,7 +279,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
             return;
           }
           failCount++;
-          bar.style.display = 'none';
           if (failCount >= 5) {
             notifyFailure(sitekey);
             startLock();
@@ -359,9 +351,12 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
 
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f3f4f6;';
-    var brand = document.createElement('span');
-    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;';
-    brand.textContent = 'Powered By NobotCAPTCHA';
+    var brand = document.createElement('a');
+    brand.href = 'mailto:aicoding2025tw@gmail.com?subject=' + encodeURIComponent('NobotCAPTCHA 錯誤回報 - ' + location.hostname);
+    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;text-decoration:none;cursor:pointer;';
+    brand.textContent = '回報錯誤';
+    brand.onmouseenter = function() { brand.style.color = '#6b7280'; };
+    brand.onmouseleave = function() { brand.style.color = '#9ca3af'; };
     var btn = document.createElement('button');
     btn.type = 'button'; btn.textContent = '驗證';
     btn.style.cssText = 'padding:6px 18px;background:#6366f1;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
@@ -454,9 +449,12 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
 
     var footer = document.createElement('div');
     footer.style.cssText = 'padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f3f4f6;';
-    var brand = document.createElement('span');
-    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;';
-    brand.textContent = 'Powered By NobotCAPTCHA';
+    var brand = document.createElement('a');
+    brand.href = 'mailto:aicoding2025tw@gmail.com?subject=' + encodeURIComponent('NobotCAPTCHA 錯誤回報 - ' + location.hostname);
+    brand.style.cssText = 'font-size:10px;color:#9ca3af;letter-spacing:.08em;text-decoration:none;cursor:pointer;';
+    brand.textContent = '回報錯誤';
+    brand.onmouseenter = function() { brand.style.color = '#6b7280'; };
+    brand.onmouseleave = function() { brand.style.color = '#9ca3af'; };
     var btn = document.createElement('button');
     btn.type = 'button'; btn.textContent = '驗證';
     btn.style.cssText = 'padding:6px 18px;background:#6366f1;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
