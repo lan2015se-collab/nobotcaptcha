@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SDK_VERSION = "2.1.0";
+const SDK_VERSION = "2.2.0";
 const SDK_BUILT_AT = new Date().toISOString();
 
 const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT} */
