@@ -171,6 +171,20 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
   // ── Styles (white theme to match dashboard) ──
   var BASE_STYLE = "font-family:'Space Grotesk',-apple-system,system-ui,sans-serif;user-select:none;";
 
+  // ── Shared footer: "回報錯誤" mailto button ──
+  function makeFooter(style) {
+    var f = document.createElement('div');
+    f.style.cssText = (style || 'margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;text-align:center;');
+    var a = document.createElement('a');
+    a.href = 'mailto:aicoding2025tw@gmail.com?subject=' + encodeURIComponent('NobotCAPTCHA 錯誤回報 - ' + location.hostname);
+    a.textContent = '回報錯誤';
+    a.style.cssText = 'font-size:10px;letter-spacing:.08em;color:#9ca3af;text-decoration:none;cursor:pointer;background:none;border:none;padding:0;';
+    a.onmouseenter = function() { a.style.color = '#6b7280'; };
+    a.onmouseleave = function() { a.style.color = '#9ca3af'; };
+    f.appendChild(a);
+    return f;
+  }
+
   // ── CHECKBOX widget (server-verified PoW) ──
   function createCheckboxWidget(container, sitekey, level) {
     container.style.cssText = 'width:300px;border-radius:6px;border:1px solid #e5e7eb;background:#ffffff;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);' + BASE_STYLE;
