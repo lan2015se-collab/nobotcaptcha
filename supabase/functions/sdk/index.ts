@@ -230,8 +230,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       box.innerHTML = '';
       label.textContent = '我不是機器人';
       label.style.color = '#1f2937';
-      bar.style.display = 'none';
-      barFill.style.width = '0%';
     }
     function startLock() {
       var remaining = 60;
@@ -251,18 +249,12 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
       if (state !== 'idle') return;
       state = 'verifying';
       showSpinner();
-      label.textContent = '驗證中… 0%';
-      bar.style.display = 'block';
+      label.textContent = '驗證中…';
 
       fetch(POW_URL + '?level=' + encodeURIComponent(level || 'medium'))
         .then(function(r) { if (!r.ok) throw new Error('SERVICE_DOWN'); return r.json(); })
         .then(function(ch) {
-          return solvePoW(ch.salt, ch.difficulty, function(p) {
-            label.textContent = '驗證中… ' + p + '%';
-            barFill.style.width = p + '%';
-          }).then(function(nonce) {
-            barFill.style.width = '100%';
-            label.textContent = '驗證中… 100%';
+          return solvePoW(ch.salt, ch.difficulty).then(function(nonce) {
             return fetch(POW_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -277,7 +269,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
         .then(function(v) {
           if (!v || !v.ok) throw new Error(v && v.error || 'verify');
           state = 'verified';
-          bar.style.display = 'none';
           showCheck();
           label.textContent = '驗證成功';
           label.style.color = '#16a34a';
@@ -290,7 +281,6 @@ const sdkScript = `/* NobotCAPTCHA SDK v${SDK_VERSION} — built ${SDK_BUILT_AT}
             return;
           }
           failCount++;
-          bar.style.display = 'none';
           if (failCount >= 5) {
             notifyFailure(sitekey);
             startLock();
